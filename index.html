@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Chicken Rush</title>
-  <link rel="stylesheet" href="style.css?v=76" />
+  <link rel="stylesheet" href="style.css?v=78" />
   <!-- Three.js por CDN mediante import map -->
   <script type="importmap">
   {
@@ -45,6 +45,9 @@
 
     <!-- Velo de tormenta de arena (nivel 5) -->
     <div id="sandstorm"></div>
+
+    <!-- Aviso de que el águila (línea que persigue) está a punto de alcanzarte -->
+    <div id="eagle-warning">🦅 ¡MUÉVETE!</div>
 
     <!-- BLOQUE 11: Interfaz de la pelea de JEFE FINAL (oculta salvo en la pelea) -->
     <div id="boss-ui" class="hidden">
@@ -152,6 +155,9 @@
       <button id="reset-cancel" class="btn btn-sm">CANCELAR</button>
     </div>
 
+    <!-- Botón táctil de acción del JEFE (agarrar/lanzar trastos). Solo en la pelea. -->
+    <button id="boss-action-btn" class="hidden">✊<span class="bab-label">AGARRAR</span></button>
+
     <!-- Controles tactiles para movil -->
     <div id="touch-controls" class="hidden">
       <button class="dpad up" data-dir="forward">▲</button>
@@ -161,6 +167,6 @@
     </div>
   </div>
 
-  <script type="module" src="game.js?v=76"></script>
+  <script type="module" src="game.js?v=78"></script>
 </body>
 </html>

@@ -3552,6 +3552,12 @@ document.querySelectorAll(".dpad").forEach((btn) => {
   btn.addEventListener("click", () => tryMove(btn.dataset.dir));
 });
 
+// Botón táctil de acción del jefe (agarrar/lanzar): hace lo mismo que la tecla L/Q.
+const elBossBtn = document.getElementById("boss-action-btn");
+if (elBossBtn) {
+  elBossBtn.addEventListener("click", (e) => { e.preventDefault(); bossActionKey(); });
+}
+
 // ----------------------------------------------------------------------------
 // 8. ACTUALIZACIÓN DE VEHÍCULOS, COLISIONES Y AVANCE FORZADO
 // ----------------------------------------------------------------------------
@@ -3753,15 +3759,23 @@ function updateLogRiding(dt) {
 
 // Avance forzado (mecánica del águila de Crossy Road).
 // Una "línea de seguridad" trasera sube poco a poco; si te alcanza, pierdes.
-const forced = { boundary: -5, baseSpeed: 0.55 };
+const forced = { boundary: -5, baseSpeed: 0.42 };
 function updateForcedAdvance(dt) {
-  // La línea persigue al jugador; cuanto más lejos quedas, más rápido sube.
-  const target = playerState.maxRow - 4;
-  const speed = forced.baseSpeed + Math.max(0, playerState.maxRow - forced.boundary) * 0.04;
+  // La línea (el águila) persigue al jugador; se queda MÁS lejos (6 filas) y
+  // sube más despacio que antes, para dar más margen.
+  const target = playerState.maxRow - 6;
+  const speed = forced.baseSpeed + Math.max(0, playerState.maxRow - forced.boundary) * 0.03;
   if (forced.boundary < target) {
     forced.boundary = Math.min(target, forced.boundary + speed * dt);
   }
-  // Si el jugador queda por detrás de la línea, game over.
+  // AVISO: si el águila está a punto de alcanzarte (a <2 filas), parpadea el
+  // borde rojo y aparece "¡MUÉVETE!" para que no te pille por sorpresa.
+  const margin = playerState.row - forced.boundary;   // filas que te quedan
+  if (elEagleWarn) {
+    if (playerState.alive && margin < 2 && margin > -1) elEagleWarn.classList.add("show");
+    else elEagleWarn.classList.remove("show");
+  }
+  // Si el jugador queda por detrás de la línea, game over (te pilla el águila).
   if (playerState.row < forced.boundary - 0.5) {
     die(false, "eagle");
   }
@@ -3804,6 +3818,7 @@ function updateQuicksand(dt) {
 // Cada cierto tiempo la niebla se cierra (reduce visibilidad) y un velo de
 // arena cubre la pantalla; luego se despeja gradualmente.
 const elSandstorm = document.getElementById("sandstorm");
+const elEagleWarn = document.getElementById("eagle-warning"); // aviso de "te alcanza el águila"
 let stormStart = 0;       // instante en que empezó la tormenta actual
 let stormDur = 0;         // duración de la tormenta actual
 let nextStormAt = 0;      // instante de la próxima tormenta
@@ -8636,6 +8651,8 @@ function startBossFight() {
   // Estado del juego + interfaz.
   gameState = "boss";
   if (elBossUI) elBossUI.classList.remove("hidden");
+  // Botón de acción del jefe solo en móvil/iPad (para agarrar y lanzar trastos).
+  if (elBossBtn && isTouchDevice()) elBossBtn.classList.remove("hidden");
   elHud.classList.add("hidden");          // ocultar HUD normal durante la pelea
   renderBossUI();
   showBossIntro();
@@ -8670,6 +8687,7 @@ function clearBossFight() {
   }
   boss.columnSet = null;   // soltar las casillas de columnas de cobertura
   if (elBossUI) elBossUI.classList.add("hidden");
+  if (elBossBtn) elBossBtn.classList.add("hidden");        // ocultar el botón de acción del jefe
   if (elBossSpeech) elBossSpeech.classList.add("hidden");  // Parte 5: quitar bocadillo
   hideBossIntro();
 }
@@ -8677,6 +8695,13 @@ function clearBossFight() {
 // --- Bucle de la pelea (se llama desde animate cuando gameState==="boss") ---
 function updateBoss(dt, now) {
   boss.t += dt;
+
+  // Botón táctil: cambia entre "AGARRAR" y "LANZAR" según lleves trasto o no.
+  if (elBossBtn && !elBossBtn.classList.contains("hidden")) {
+    const lbl = elBossBtn.querySelector(".bab-label");
+    if (lbl) lbl.textContent = boss.held ? "LANZAR" : "AGARRAR";
+    elBossBtn.firstChild.textContent = boss.held ? "🎯" : "✊";
+  }
 
   // Parte 5: ocultar el bocadillo de diálogo cuando se acaba su tiempo.
   if (boss.speechUntil && now >= boss.speechUntil) {
@@ -8993,6 +9018,8 @@ function animate() {
 
   updateMenuChick(dt, now); // Bloque 10: pollito del menú (solo actúa si gameState==="start")
   updateLegendaryFx(dt);    // Bloque 11 (Parte 6): aura animada de la skin legendaria
+  // Fuera del juego activo, asegurar que el aviso del águila no se quede pegado.
+  if (gameState !== "playing" && elEagleWarn) elEagleWarn.classList.remove("show");
 
   renderer.render(scene, camera);
 }

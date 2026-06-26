@@ -156,6 +156,35 @@ canvas {
     linear-gradient(180deg, rgba(214, 170, 96, 0.55), rgba(180, 130, 60, 0.5));
 }
 
+/* Aviso de que el águila (línea perseguidora) está a punto de alcanzarte:
+   borde rojo parpadeante + texto "¡MUÉVETE!". */
+#eagle-warning {
+  position: absolute;
+  inset: 0;
+  z-index: 13;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 16%;
+  font-weight: 800;
+  font-size: clamp(20px, 5vw, 40px);
+  letter-spacing: 1px;
+  color: #fff;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.7);
+  background: radial-gradient(ellipse at center, transparent 55%, rgba(255, 30, 30, 0.55) 100%);
+}
+#eagle-warning.show {
+  opacity: 1;
+  animation: eaglePulse 0.6s ease-in-out infinite;
+}
+@keyframes eaglePulse {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+
 #powerup-toast {
   position: absolute;
   top: 32%;
@@ -876,6 +905,42 @@ body.theme-light .album-section-title { color: #1a2240; }
 .dpad.left  { grid-column: 1; grid-row: 2; }
 .dpad.right { grid-column: 3; grid-row: 2; }
 .dpad.down  { grid-column: 2; grid-row: 3; }
+
+/* ---------- Botón de acción del JEFE (móvil/iPad) ---------- */
+#boss-action-btn {
+  position: absolute;
+  bottom: 40px;
+  left: 26px;
+  z-index: 16;
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  font-size: 34px;
+  color: #fff;
+  background: radial-gradient(circle at 35% 30%, rgba(255,90,120,0.9), rgba(180,30,60,0.85));
+  border: 3px solid rgba(255,255,255,0.55);
+  box-shadow: 0 4px 14px rgba(0,0,0,0.45), 0 0 16px rgba(255,60,90,0.6);
+  backdrop-filter: blur(4px);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  animation: babPulse 1.2s ease-in-out infinite;
+}
+#boss-action-btn .bab-label {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+}
+#boss-action-btn:active { transform: scale(0.92); background: radial-gradient(circle at 35% 30%, rgba(255,140,160,1), rgba(210,40,80,0.95)); }
+@keyframes babPulse {
+  0%, 100% { box-shadow: 0 4px 14px rgba(0,0,0,0.45), 0 0 12px rgba(255,60,90,0.5); }
+  50%      { box-shadow: 0 4px 14px rgba(0,0,0,0.45), 0 0 22px rgba(255,60,90,0.9); }
+}
 
 /* ---------- Controles de audio ---------- */
 #audio-controls {
