@@ -429,8 +429,8 @@ function pickRowType(row) {
     if (r < 0.56) return ROW_CANNON;
     return ROW_CIRCUS;
   }
-  // Nivel 7: lava con rocas móviles, más hierba segura (más fácil: menos lava).
-  return r < 0.38 ? ROW_LAVA : ROW_GRASS;
+  // Nivel 7: lava con rocas móviles. Más lava que hierba (más difícil).
+  return r < 0.58 ? ROW_LAVA : ROW_GRASS;
 }
 
 function createGrassRow(row) {
@@ -479,28 +479,23 @@ function createGrassRow(row) {
 // derecha. Si el pollo se sube al cochecito, se pasa el nivel directamente.
 function createEscapeRow(row) {
   const group = new THREE.Group();
-  const mat = row % 2 === 0 ? matGrassL : matGrassD;
+  // Suelo de circo (no de hierba) para que el atajo se mimetice con el nivel.
+  const mat = row % 2 === 0 ? matCircusL : matCircusD;
   const tile = new THREE.Mesh(new THREE.BoxGeometry(FIELD_WIDTH, 0.4, TILE), mat);
   tile.position.set(0, -0.2, 0);
   tile.receiveShadow = true;
   group.add(tile);
 
-  // Cochecito de escape pegado al borde derecho.
+  // Cochecito de escape pegado al borde derecho, algo más pequeño y discreto
+  // (sin flecha luminosa): hay que descubrirlo, no salta a la vista.
   const car = buildEscapeCar();
   car.position.set(ESCAPE_COL * TILE, 0, 0);
+  car.scale.setScalar(0.82);
   group.add(car);
-
-  // Flecha luminosa flotando para indicar el atajo.
-  const arrow = new THREE.Mesh(
-    new THREE.BoxGeometry(0.5, 0.12, 0.12),
-    new THREE.MeshStandardMaterial({ color: 0xffe23a, emissive: 0xffd000, emissiveIntensity: 0.9 })
-  );
-  arrow.position.set((ESCAPE_COL - 1.4) * TILE, 0.9, 0);
-  group.add(arrow);
 
   group.position.copy(gridToWorld(0, row));
   scene.add(group);
-  rows.set(row, { type: ROW_GRASS, group, blocked: new Set() });
+  rows.set(row, { type: ROW_CIRCUS, group, blocked: new Set() });
   // Guardar la referencia del cochecito para detectar cuando el pollo se sube.
   escapeCar = { mesh: car, col: ESCAPE_COL, row };
 }
@@ -823,8 +818,8 @@ function createLavaRow(row) {
   scene.add(group);
 
   const dir = Math.random() < 0.5 ? 1 : -1;
-  const speed = 0.7 + Math.random() * 0.7;   // rocas más lentas (antes 0.9–1.9)
-  const gap = 2.8 + Math.random() * 0.9;     // rocas más juntas, más sitio donde caer (antes 3.4–4.6)
+  const speed = 1.1 + Math.random() * 0.9;   // rocas más rápidas (más difícil)
+  const gap = 3.3 + Math.random() * 1.1;     // huecos más grandes entre rocas (saltos más justos)
   const lane = { type: ROW_LAVA, group, dir, speed, gap, row, cars: [] };
   rows.set(row, lane);
 
@@ -2034,7 +2029,9 @@ function updateZombies(dt, now) {
   const pz = player.position.z;
   // Disfraz de zombi: con la skin Zombi + la mascota Zombi equipadas, los zombis
   // te toman por uno de los suyos y no te persiguen ni te atacan.
-  const disguised = (equippedSkin === "zombie" && equippedPet === "zombi");
+  // Además, el Pollo Divino es DEMASIADO poderoso: los zombis no se le acercan.
+  const disguised = (equippedSkin === "zombie" && equippedPet === "zombi")
+    || equippedSkin === "cosmico";
   for (const z of zombies) {
     const m = z.mesh;
     if (disguised) {
@@ -4719,12 +4716,12 @@ function buildLegendaryAura() {
   );
   auraOuter.position.y = 0.6; g.add(auraOuter);
 
-  // Pilar de luz que se eleva (muy épico).
+  // Pilar de luz que se eleva (más bajo, no sube tan alto).
   const pillar = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.55, 0.85, 3.4, 22, 1, true),
+    new THREE.CylinderGeometry(0.55, 0.85, 1.9, 22, 1, true),
     new THREE.MeshBasicMaterial({ color: 0xffe24a, transparent: true, opacity: 0.12, side: THREE.DoubleSide })
   );
-  pillar.position.y = 1.7; g.add(pillar);
+  pillar.position.y = 0.95; g.add(pillar);
 
   // Alas de energía a la espalda (plumas brillantes en abanico, más grandes).
   const wings = [];
@@ -5892,48 +5889,106 @@ function buildPetOwl() { // Búho marrón con ojos grandes (flota).
   return g;
 }
 
-// Mascota CÓSMICA legendaria (regalo exclusivo por vencer al jefe): un mini
-// planeta brillante con anillo de Saturno, lunas que orbitan y estrellas que
-// giran a su alrededor. Cambia de color por el arcoíris (animada en updatePet).
+// Mascota legendaria (regalo exclusivo por vencer al jefe): un ALIEN espacial
+// verde de tres ojos, con MUCHA aura — doble esfera envolvente, disco de luz,
+// antena luminosa, estrellas que orbitan y chispas que ascienden. Flota.
+// Animada en updatePet (rama cosmic).
 function buildPetCosmica() {
   const g = new THREE.Group();
-  // Núcleo-planeta brillante (su color se cicla en updatePet).
-  const core = new THREE.Mesh(
-    new THREE.SphereGeometry(0.19, 18, 14),
-    new THREE.MeshStandardMaterial({ color: 0x6a2bff, emissive: 0x6a2bff, emissiveIntensity: 1.2, roughness: 0.2, metalness: 0.7 })
-  );
-  core.position.y = 0.5; g.add(core);
-  // Aura translúcida envolviendo el planeta.
-  const aura = new THREE.Mesh(
-    new THREE.SphereGeometry(0.27, 16, 12),
-    new THREE.MeshBasicMaterial({ color: 0xff00cc, transparent: true, opacity: 0.25, side: THREE.BackSide })
-  );
-  aura.position.y = 0.5; g.add(aura);
-  // Anillo de Saturno inclinado.
-  const ring = new THREE.Mesh(
-    new THREE.TorusGeometry(0.32, 0.035, 8, 30),
-    new THREE.MeshBasicMaterial({ color: 0xffe600 })
-  );
-  ring.position.y = 0.5; ring.rotation.x = Math.PI / 2.5; g.add(ring);
-  // Lunas que orbitan a distintas alturas y velocidades.
-  const moons = [];
-  const moonColors = [0x00f0ff, 0xff00cc, 0xffe600];
-  for (let i = 0; i < 3; i++) {
-    const moon = new THREE.Mesh(
-      new THREE.SphereGeometry(0.055, 8, 6),
-      new THREE.MeshStandardMaterial({ color: moonColors[i], emissive: moonColors[i], emissiveIntensity: 1.0 })
-    );
-    g.add(moon);
-    moons.push({ mesh: moon, r: 0.36 + i * 0.07, speed: 2.2 + i * 0.8, phase: i * 2.1, tilt: i * 0.6 });
+  const green     = new THREE.MeshStandardMaterial({ color: 0x66c43a, roughness: 0.55, emissive: 0x1d3a0c, emissiveIntensity: 0.35 });
+  const greenDark = new THREE.MeshStandardMaterial({ color: 0x4a9628, roughness: 0.7 });
+  const white     = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.35 });
+  const black     = new THREE.MeshStandardMaterial({ color: 0x111111 });
+  const suit      = new THREE.MeshStandardMaterial({ color: 0x2f5fd0, roughness: 0.5 });
+  const beltMat   = new THREE.MeshStandardMaterial({ color: 0x8a3bd0, roughness: 0.5, emissive: 0x3a1060, emissiveIntensity: 0.3 });
+
+  // Cuerpo con TRAJE ESPACIAL azul + cabeza verde grandota.
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.36, 0.3), suit);
+  body.position.y = 0.46; g.add(body);
+  // Cinturón morado.
+  const belt = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.07, 0.32), beltMat);
+  belt.position.y = 0.36; g.add(belt);
+  // Emblema (planeta con anillo) en el pecho.
+  const emblem = new THREE.Mesh(new THREE.SphereGeometry(0.05, 10, 8),
+    new THREE.MeshStandardMaterial({ color: 0xffe24a, emissive: 0xffd000, emissiveIntensity: 0.5 }));
+  emblem.position.set(0, 0.5, 0.16); g.add(emblem);
+  const emRing = new THREE.Mesh(new THREE.TorusGeometry(0.07, 0.012, 6, 16),
+    new THREE.MeshStandardMaterial({ color: 0xffffff }));
+  emRing.position.set(0, 0.5, 0.16); emRing.rotation.y = 0.6; g.add(emRing);
+  // Piernas/botas azules.
+  for (const dx of [-0.09, 0.09]) {
+    const leg = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.12, 0.12), suit);
+    leg.position.set(dx, 0.22, 0.02); g.add(leg);
   }
-  // Estrellitas (octaedros) que giran y centellean.
+  const head = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.32, 0.32), green);
+  head.position.y = 0.78; g.add(head);
+  // Orejas a los lados.
+  for (const dx of [-0.22, 0.22]) {
+    const ear = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.16, 0.12), greenDark);
+    ear.position.set(dx, 0.8, 0); g.add(ear);
+  }
+  // Antena con bombilla luminosa.
+  const antenna = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.16, 6), greenDark);
+  antenna.position.set(0, 1.0, 0); g.add(antenna);
+  const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.045, 8, 6),
+    new THREE.MeshStandardMaterial({ color: 0xffe24a, emissive: 0xffd000, emissiveIntensity: 0.9 }));
+  bulb.position.set(0, 1.1, 0); g.add(bulb);
+  // Tres ojos sobre tallitos (el rasgo característico).
+  const eyes = [];
+  for (const dx of [-0.11, 0, 0.11]) {
+    const stalk = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.07, 6), greenDark);
+    stalk.position.set(dx, 0.96, 0.1); g.add(stalk);
+    const eyeW = new THREE.Mesh(new THREE.SphereGeometry(0.06, 10, 8), white);
+    eyeW.position.set(dx, 1.0, 0.14); g.add(eyeW);
+    const pup = new THREE.Mesh(new THREE.SphereGeometry(0.028, 8, 6), black);
+    pup.position.set(dx, 1.0, 0.19); g.add(pup);
+    eyes.push(eyeW);
+  }
+  // Boca.
+  const mouth = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.04, 0.04), greenDark);
+  mouth.position.set(0, 0.68, 0.17); g.add(mouth);
+  // Bracitos: manga azul + mano verde (uno saludando, como en la referencia).
+  for (const dx of [-0.23, 0.23]) {
+    const sleeve = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.16, 0.07), suit);
+    sleeve.position.set(dx, 0.46, 0.04); g.add(sleeve);
+    const hand = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.07, 0.07), green);
+    hand.position.set(dx, dx > 0 ? 0.62 : 0.37, 0.05); g.add(hand); // mano derecha levantada
+  }
+
+  // --- Aura épica ---
+  const auraInner = new THREE.Mesh(
+    new THREE.SphereGeometry(0.36, 16, 12),
+    new THREE.MeshBasicMaterial({ color: 0x8aff5a, transparent: true, opacity: 0.26, side: THREE.BackSide })
+  );
+  auraInner.position.y = 0.7; g.add(auraInner);
+  const auraOuter = new THREE.Mesh(
+    new THREE.SphereGeometry(0.55, 16, 12),
+    new THREE.MeshBasicMaterial({ color: 0x00f0ff, transparent: true, opacity: 0.12, side: THREE.BackSide })
+  );
+  auraOuter.position.y = 0.7; g.add(auraOuter);
+  // Disco de luz girando bajo el alien.
+  const groundGlow = new THREE.Mesh(
+    new THREE.TorusGeometry(0.36, 0.045, 10, 32),
+    new THREE.MeshBasicMaterial({ color: 0x8aff5a, transparent: true, opacity: 0.55 })
+  );
+  groundGlow.rotation.x = Math.PI / 2; groundGlow.position.y = 0.2; g.add(groundGlow);
+  // Estrellitas que orbitan y centellean.
   const stars = [];
   const starGeo = new THREE.OctahedronGeometry(0.045);
-  for (let i = 0; i < 6; i++) {
+  for (let i = 0; i < 7; i++) {
     const s = new THREE.Mesh(starGeo, new THREE.MeshBasicMaterial({ color: 0xffffff }));
     g.add(s); stars.push(s);
   }
-  g.userData = { float: true, cosmic: true, core, aura, ring, moons, stars };
+  // Chispas que ascienden alrededor del alien.
+  const sparks = [];
+  const sparkGeo = new THREE.BoxGeometry(0.04, 0.04, 0.04);
+  for (let i = 0; i < 8; i++) {
+    const sp = new THREE.Mesh(sparkGeo, new THREE.MeshBasicMaterial({ color: 0x8aff5a, transparent: true, opacity: 0.9 }));
+    sp.userData = { phase: Math.random(), speed: 0.6 + Math.random() * 0.6, ang: Math.random() * 6.28, rad: 0.3 + Math.random() * 0.25 };
+    g.add(sp); sparks.push(sp);
+  }
+  g.scale.setScalar(1.15);  // un pelín más grande que el resto de mascotas
+  g.userData = { float: true, cosmic: true, alien: true, auraInner, auraOuter, groundGlow, stars, sparks, eyes, bulb };
   return g;
 }
 
@@ -5941,7 +5996,7 @@ function buildPetCosmica() {
 const PETS = {
   none:     { name: "Ninguna",  price: 0,   swatch: "#3a3550" },
   // Mascota EXCLUSIVA legendaria: solo se consigue venciendo al JEFE FINAL.
-  cosmica:  { name: "Mascota Cósmica", price: 0, swatch: "rainbow", build: buildPetCosmica, exclusive: true, legendary: true },
+  cosmica:  { name: "Alien", price: 0, swatch: "#66c43a", build: buildPetCosmica, exclusive: true, legendary: true },
   pollito:  { name: "Pollito",  price: 30,  swatch: "#ffd21a", build: buildPetChick },
   gato:     { name: "Gatito",   price: 40,  swatch: "#9aa3b2", build: buildPetCat },
   perro:    { name: "Perrito",  price: 40,  swatch: "#b5793f", build: buildPetDog },
@@ -5985,8 +6040,11 @@ function applyPet() {
 // Movimiento de la mascota: persigue un punto detrás del pollo con suavizado.
 function updatePet(dt, now) {
   if (!petMesh) return;
-  // Punto objetivo: ligeramente detrás y al lado del pollo.
-  petTarget.set(player.position.x - 0.7, 0, player.position.z + 0.85);
+  // El Alien va centrado y MÁS atrás (detrás de los guardaespaldas, en medio);
+  // las demás mascotas van un poco detrás y al lado del pollo.
+  const ox = petMesh.userData.cosmic ? 0 : -0.7;
+  const oz = petMesh.userData.cosmic ? 1.5 : 0.85;
+  petTarget.set(player.position.x + ox, 0, player.position.z + oz);
   petMesh.position.x += (petTarget.x - petMesh.position.x) * Math.min(1, dt * 6);
   petMesh.position.z += (petTarget.z - petMesh.position.z) * Math.min(1, dt * 6);
   // Mirar hacia el pollo.
@@ -6008,33 +6066,41 @@ function updatePet(dt, now) {
     petMesh.userData.arms[0].rotation.x = sway;
     petMesh.userData.arms[1].rotation.x = -sway;
   }
-  // Mascota CÓSMICA: planeta arcoíris con anillo, lunas en órbita y estrellas.
+  // Mascota ALIEN: aura verde épica, disco de luz, estrellas en órbita, chispas
+  // que ascienden, antena que parpadea y ojos que se balancean.
   if (petMesh.userData.cosmic) {
     const u = petMesh.userData;
-    if (u.core) {
-      u.core.material.color.setHSL((now * 0.2) % 1, 1, 0.6);
-      u.core.material.emissive.setHSL((now * 0.2) % 1, 1, 0.5);
-      u.core.material.emissiveIntensity = 1.1 + Math.sin(now * 4) * 0.3;
+    if (u.auraInner) {
+      u.auraInner.material.color.setHSL((0.28 + Math.sin(now * 0.5) * 0.06 + 1) % 1, 1, 0.6);
+      u.auraInner.material.opacity = 0.2 + Math.abs(Math.sin(now * 2)) * 0.18;
+      u.auraInner.scale.setScalar(1 + Math.sin(now * 3) * 0.1);
     }
-    if (u.aura) {
-      u.aura.material.color.setHSL((now * 0.2 + 0.5) % 1, 1, 0.6);
-      u.aura.material.opacity = 0.2 + Math.abs(Math.sin(now * 2)) * 0.16;
-      u.aura.scale.setScalar(1 + Math.sin(now * 3) * 0.08);
+    if (u.auraOuter) {
+      u.auraOuter.material.color.setHSL((0.5 + Math.sin(now * 0.4) * 0.08 + 1) % 1, 1, 0.6);
+      u.auraOuter.material.opacity = 0.07 + Math.abs(Math.sin(now * 1.6)) * 0.12;
+      u.auraOuter.scale.setScalar(1 + Math.sin(now * 2.2 + 1) * 0.12);
     }
-    if (u.ring) {
-      u.ring.rotation.z += dt * 1.6;
-      u.ring.material.color.setHSL((now * 0.3 + 0.5) % 1, 1, 0.6);
+    if (u.groundGlow) {
+      u.groundGlow.rotation.z += dt * 1.4;
+      u.groundGlow.material.opacity = 0.35 + Math.abs(Math.sin(now * 2.5)) * 0.4;
     }
-    if (u.moons) for (const mo of u.moons) {
-      const a = now * mo.speed + mo.phase;
-      mo.mesh.position.set(Math.cos(a) * mo.r, 0.5 + Math.sin(a + mo.tilt) * 0.13, Math.sin(a) * mo.r);
+    if (u.bulb) u.bulb.material.emissiveIntensity = 0.7 + Math.abs(Math.sin(now * 4)) * 0.8; // antena parpadea
+    if (u.eyes) for (let i = 0; i < u.eyes.length; i++) {
+      u.eyes[i].position.x += Math.sin(now * 2 + i) * 0.0008; // los ojos miran de lado a lado
     }
     if (u.stars) for (let i = 0; i < u.stars.length; i++) {
       const s = u.stars[i];
       const a = -now * 1.4 + (i / u.stars.length) * Math.PI * 2;
-      s.position.set(Math.cos(a) * 0.44, 0.5 + Math.sin(now * 2 + i) * 0.22, Math.sin(a) * 0.44);
+      s.position.set(Math.cos(a) * 0.5, 0.7 + Math.sin(now * 2 + i) * 0.26, Math.sin(a) * 0.5);
       s.material.color.setHSL((now * 0.5 + i / u.stars.length) % 1, 1, 0.72);
+      s.scale.setScalar(0.6 + Math.abs(Math.sin(now * 5 + i)) * 0.7);
       s.rotation.y += dt * 4;
+    }
+    if (u.sparks) for (const sp of u.sparks) {
+      sp.userData.phase += dt * sp.userData.speed;
+      const p = sp.userData.phase % 1;
+      sp.position.set(Math.cos(sp.userData.ang) * sp.userData.rad, 0.2 + p * 0.9, Math.sin(sp.userData.ang) * sp.userData.rad);
+      sp.material.opacity = (1 - p) * 0.9;
     }
   }
 }
@@ -7535,7 +7601,7 @@ function isBirthdaySurprise() {
 // Códigos secretos: escribir "lol" activa la fiesta; "67" la quita.
 const CODE_ON = ["l", "o", "l"];
 const CODE_OFF = ["6", "7"];
-const CODE_EPIC = ["e", "p", "i", "c"];   // código secreto: prueba la skin legendaria ya
+const CODE_EPIC = "calcetin sucio".split("");   // código secreto: desbloquea el Pollo Divino
 let onIdx = 0, offIdx = 0, epicIdx = 0;
 let konamiArmed = false;            // una vez activado, los sombreros vuelven en cada partida
 window.addEventListener("keydown", (e) => {
@@ -7558,7 +7624,7 @@ window.addEventListener("keydown", (e) => {
   } else {
     offIdx = (k === CODE_OFF[0]) ? 1 : 0;
   }
-  // Desbloquear y equipar la skin legendaria al momento con "epic" (para probarla).
+  // Desbloquear y equipar la skin legendaria al momento con "calcetin sucio".
   if (k === CODE_EPIC[epicIdx]) {
     epicIdx++;
     if (epicIdx >= CODE_EPIC.length) { epicIdx = 0; unlockLegendaryNow(); }
@@ -7755,7 +7821,7 @@ function showMessage(title, subtitle, btnLabel, onClick) {
 // ============================================================================
 
 // --- Constantes de la pelea ---
-const BOSS_MAX_HP = 6;          // trozos de la barra de vida del jefe
+const BOSS_MAX_HP = 8;          // trozos de la barra de vida del jefe (más = más difícil)
 const BOSS_START_LIVES = 3;     // vidas del pollito durante la pelea
 const BOSS_ARENA_HALF = 4;      // semiancho jugable de la arena (columnas -4..4)
 const BOSS_ARENA_FRONT = 8;     // fila más adelantada a la que puede ir el pollito
@@ -7765,8 +7831,8 @@ const BOSS_INTRO_DUR = 2.6;     // segundos del aviso "¡ALGO SE ACERCA!"
 
 // Parte 2: lanzamiento de objetos.
 const BOSS_THROW_TYPES = ["toilet", "sofa", "chicken", "tv"]; // trastos que lanza
-const BOSS_THROW_INTERVAL = 3.0;   // segundos entre lanzamientos (ritmo tranquilo)
-const BOSS_TELEGRAPH_DUR = 1.15;   // aviso (marca en el suelo) antes de salir volando
+const BOSS_THROW_INTERVAL = 2.3;   // segundos entre lanzamientos (lanza más a menudo)
+const BOSS_TELEGRAPH_DUR = 0.95;   // aviso (marca en el suelo) antes de salir volando (menos margen)
 const BOSS_ARC_DUR = 0.85;         // duración del vuelo en arco
 const BOSS_LAND_LINGER = 1.6;      // tiempo que el objeto queda en el suelo tras caer
 
@@ -8510,7 +8576,7 @@ function onBossDefeated() {
   // Pantalla de victoria.
   gameState = "won";
   const sub = firstTime
-    ? "Has desbloqueado ✦: skin ÉPICA «Pollo Divino» (¡aura, alas y halos!) con escolta de guardaespaldas, estela «Cósmica» y la «Mascota Cósmica» 🪐 · +150 monedas"
+    ? "Has desbloqueado ✦: skin ÉPICA «Pollo Divino» (¡aura, alas y halos!) con escolta de guardaespaldas, estela «Cósmica» y la mascota «Alien» 👽 · +150 monedas"
     : "¡Otra vez! +150 monedas · Skin, estela y mascota cósmicas ya son tuyas ✦";
   showMessage("✦ ¡JEFE DERROTADO! ✦", sub, "¡GENIAL!", goToMenu);
 }
@@ -8809,6 +8875,7 @@ function goToMenu() {
   if (elSandstorm) elSandstorm.style.opacity = "0";  // limpiar velo de tormenta
   if (scene.fog) { scene.fog.near = FOG_NEAR; scene.fog.far = FOG_FAR; }
   elGameOver.classList.add("hidden");
+  elMessage.classList.add("hidden");   // ocultar el cartel de victoria/nivel (el botón GENIAL nos trae aquí)
   elHud.classList.add("hidden");
   elTouch.classList.add("hidden");
   elStart.classList.remove("hidden");
