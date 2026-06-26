@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Chicken Rush</title>
+  <link rel="stylesheet" href="style.css?v=69" />
+  <!-- Three.js por CDN mediante import map -->
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.160.0/build/three.module.js"
+    }
+  }
+  </script>
+</head>
+<body>
+  <div id="game-container">
+    <!-- Controles de audio (mute de sonidos y de música) -->
+    <div id="audio-controls">
+      <button id="sfx-btn" class="audio-btn" title="Sonidos">🔊</button>
+      <button id="music-btn" class="audio-btn" title="Música">🎵</button>
+    </div>
+
+    <!-- Crédito del autor -->
+    <div id="credit">By Julen &amp; Ander:)</div>
+
+    <!-- HUD de puntuacion -->
+    <div id="hud" class="hidden">
+      <div id="hud-left">
+        <div id="score">0</div>
+        <div id="coins">Monedas: 0/5</div>
+      </div>
+      <div id="hud-right">
+        <div id="level-label">Nivel 1</div>
+        <div id="best">Récord: 0</div>
+      </div>
+    </div>
+
+    <!-- Barra de power-ups activos (icono + cuenta atrás) -->
+    <div id="powerup-bar"></div>
+
+    <!-- Aviso central al recoger un power-up -->
+    <div id="powerup-toast"></div>
+
+    <!-- Velo de tormenta de arena (nivel 5) -->
+    <div id="sandstorm"></div>
+
+    <!-- BLOQUE 11: Interfaz de la pelea de JEFE FINAL (oculta salvo en la pelea) -->
+    <div id="boss-ui" class="hidden">
+      <div id="boss-name">🧟 ZOMBI GIGANTE VAGO</div>
+      <div id="boss-hp-bar"><div id="boss-hp-fill"></div></div>
+      <div id="boss-lives"></div>
+    </div>
+    <!-- Aviso dramático de la aparición del jefe -->
+    <div id="boss-intro" class="hidden"><div class="bi-text">¡ALGO SE ACERCA!</div></div>
+    <!-- PARTE 5: bocadillo de diálogo cómico del jefe -->
+    <div id="boss-speech" class="hidden"></div>
+
+    <!-- Pantalla de inicio -->
+    <div id="start-screen" class="overlay">
+      <h1>CHICKEN<br>RUSH</h1>
+      <p class="subtitle">Pollo vs. Ferraris del futuro</p>
+      <div class="menu-coins"><span class="coin-icon"></span> <span id="menu-coin-count">0</span></div>
+      <!-- Nivel del jugador y barra de experiencia -->
+      <div id="menu-level">
+        <span class="lvl-badge">NIVEL <span id="menu-level-num">1</span></span>
+        <div class="xp-bar"><div id="menu-xp-fill" class="xp-fill"></div></div>
+        <span id="menu-xp-text" class="xp-text">0 / 100 XP</span>
+      </div>
+      <button id="start-btn" class="btn">PULSA PARA JUGAR</button>
+      <div class="menu-buttons">
+        <button id="shop-btn" class="btn btn-sm">TIENDA</button>
+        <button id="ach-btn" class="btn btn-sm">LOGROS</button>
+        <button id="missions-btn" class="btn btn-sm">MISIONES</button>
+      </div>
+      <div class="menu-buttons menu-buttons-row2">
+        <button id="stats-btn" class="btn btn-sm">ESTADÍSTICAS</button>
+        <button id="album-btn" class="btn btn-sm">ÁLBUM</button>
+      </div>
+      <button id="reset-btn" class="btn btn-sm btn-danger">REINICIAR JUEGO</button>
+      <p class="hint">Flechas / WASD &nbsp;·&nbsp; Swipe en móvil</p>
+    </div>
+
+    <!-- Tienda: gastar monedas en skins del pollo -->
+    <div id="shop-screen" class="overlay hidden">
+      <h1 class="screen-title">TIENDA</h1>
+      <div class="balance"><span class="coin-icon"></span> <span id="shop-coin-count">0</span></div>
+      <!-- Pestañas por categoría: skins, accesorios, estelas, temas, píos -->
+      <div id="shop-tabs" class="shop-tabs"></div>
+      <div id="shop-list" class="card-list"></div>
+      <button id="shop-back" class="btn">VOLVER</button>
+    </div>
+
+    <!-- Logros / medallero -->
+    <div id="achievements-screen" class="overlay hidden">
+      <h1 class="screen-title">LOGROS</h1>
+      <div id="ach-list" class="medal-grid"></div>
+      <button id="ach-back" class="btn">VOLVER</button>
+    </div>
+
+    <!-- Misiones semanales -->
+    <div id="missions-screen" class="overlay hidden">
+      <h1 class="screen-title">MISIONES</h1>
+      <p class="missions-sub">Se renuevan cada semana · <span id="missions-timer"></span></p>
+      <div id="missions-list" class="card-list"></div>
+      <button id="missions-back" class="btn">VOLVER</button>
+    </div>
+
+    <!-- Estadísticas a largo plazo -->
+    <div id="stats-screen" class="overlay hidden">
+      <h1 class="screen-title">ESTADÍSTICAS</h1>
+      <div id="stats-list" class="stats-wrap"></div>
+      <button id="stats-back" class="btn">VOLVER</button>
+    </div>
+
+    <!-- Álbum / colección de cosméticos -->
+    <div id="album-screen" class="overlay hidden">
+      <h1 class="screen-title">ÁLBUM</h1>
+      <div id="album-list" class="album-wrap"></div>
+      <button id="album-back" class="btn">VOLVER</button>
+    </div>
+
+    <!-- Aviso de logro desbloqueado -->
+    <div id="ach-toast"></div>
+
+    <!-- Aviso de subida de nivel -->
+    <div id="level-toast"></div>
+
+    <!-- Pantalla de game over -->
+    <div id="gameover-screen" class="overlay hidden">
+      <h1>GAME OVER</h1>
+      <p class="final-score">Puntuación: <span id="final-score">0</span></p>
+      <p class="best-score">Récord: <span id="best-score">0</span></p>
+      <p id="gameover-msg" class="subtitle"></p>
+      <button id="restart-btn" class="btn">JUGAR DE NUEVO</button>
+      <button id="gameover-menu-btn" class="btn btn-sm">MENÚ</button>
+    </div>
+
+    <!-- Pantalla de nivel completado / victoria -->
+    <div id="message-screen" class="overlay hidden">
+      <h1 id="message-title">¡Primer nivel completado!</h1>
+      <p id="message-subtitle" class="subtitle"></p>
+      <button id="message-btn" class="btn">SIGUIENTE NIVEL</button>
+    </div>
+
+    <!-- Confirmación de reinicio total del progreso -->
+    <div id="reset-screen" class="overlay hidden">
+      <h1 class="screen-title">¿REINICIAR TODO?</h1>
+      <p class="subtitle">Se borrará TODO: monedas, skins, accesorios, estelas,<br>mascotas, logros, misiones, estadísticas, nivel y récord.<br>No se puede deshacer.</p>
+      <button id="reset-confirm" class="btn btn-danger">SÍ, BORRAR TODO</button>
+      <button id="reset-cancel" class="btn btn-sm">CANCELAR</button>
+    </div>
+
+    <!-- Controles tactiles para movil -->
+    <div id="touch-controls" class="hidden">
+      <button class="dpad up" data-dir="forward">▲</button>
+      <button class="dpad left" data-dir="left">◀</button>
+      <button class="dpad right" data-dir="right">▶</button>
+      <button class="dpad down" data-dir="back">▼</button>
+    </div>
+  </div>
+
+  <script type="module" src="game.js?v=69"></script>
+</body>
+</html>

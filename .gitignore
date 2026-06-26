@@ -1,0 +1,7 @@
+# Logs y temporales
+serve.log
+*.log
+.DS_Store
+
+# Configuración local del editor / servidor de desarrollo
+.claude/
