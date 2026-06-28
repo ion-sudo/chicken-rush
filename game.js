@@ -6665,18 +6665,30 @@ const elStatsList = document.getElementById("stats-list");
 const elAlbumScreen = document.getElementById("album-screen");
 const elAlbumList = document.getElementById("album-list");
 
-// Contador GLOBAL de visitas: cada carga suma 1 en un servicio gratuito de
-// contadores (sin registro) y muestra el total en el menú. Si el servicio falla,
-// el contador simplemente no se actualiza (no afecta al juego).
+// Contador GLOBAL de JUGADORES ÚNICOS: cada dispositivo suma 1 solo la primera
+// vez que entra (se recuerda con localStorage); las siguientes veces solo lee el
+// total sin sumar. Usa un servicio gratuito de contadores. Si falla, muestra "—".
 function countVisit() {
   const el = document.getElementById("visit-count");
   if (!el) return;
-  // Solo contar una vez por carga de página (no en cada vuelta al menú).
-  if (window.__visitCounted) return;
+  if (window.__visitCounted) return;       // una sola vez por carga de página
   window.__visitCounted = true;
-  fetch("https://abacus.jasoncameron.dev/hit/chickenrush-battlemundial/visitas")
+
+  const NS = "chickenrush-battlemundial";
+  const KEY = "jugadores";                  // clave nueva (empieza limpia)
+  let alreadyCounted = false;
+  try { alreadyCounted = localStorage.getItem("cr_counted") === "1"; } catch (e) {}
+
+  const url = alreadyCounted
+    ? `https://abacus.jasoncameron.dev/get/${NS}/${KEY}`   // ya contaste: solo leer
+    : `https://abacus.jasoncameron.dev/hit/${NS}/${KEY}`;  // primera vez: sumar 1
+
+  fetch(url)
     .then((r) => r.json())
-    .then((d) => { if (d && typeof d.value === "number") el.textContent = d.value.toLocaleString("es-ES"); })
+    .then((d) => {
+      if (d && typeof d.value === "number") el.textContent = d.value.toLocaleString("es-ES");
+      if (!alreadyCounted) { try { localStorage.setItem("cr_counted", "1"); } catch (e) {} }
+    })
     .catch(() => { el.textContent = "—"; });
 }
 
