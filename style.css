@@ -322,6 +322,19 @@ canvas {
   text-shadow: 0 2px 0 rgba(0,0,0,0.4), 0 0 14px var(--neon-yellow);
 }
 
+/* Contador global de visitas en el menú */
+#visit-counter {
+  margin-top: 8px;
+  font-size: clamp(12px, 3vw, 15px);
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.75);
+  letter-spacing: 0.5px;
+}
+#visit-counter #visit-count {
+  color: var(--neon-cyan, #00f0ff);
+  font-weight: 900;
+}
+
 .menu-buttons {
   margin-top: 16px;
   display: flex;

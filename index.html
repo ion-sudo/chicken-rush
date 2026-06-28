@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Chicken Rush</title>
-  <link rel="stylesheet" href="style.css?v=78" />
+  <link rel="stylesheet" href="style.css?v=79" />
   <!-- Three.js por CDN mediante import map -->
   <script type="importmap">
   {
@@ -65,6 +65,8 @@
       <h1>CHICKEN<br>RUSH</h1>
       <p class="subtitle">Pollo vs. Ferraris del futuro</p>
       <div class="menu-coins"><span class="coin-icon"></span> <span id="menu-coin-count">0</span></div>
+      <!-- Contador global de visitas (jugadores que han entrado) -->
+      <div id="visit-counter">👾 <span id="visit-count">…</span> jugadores</div>
       <!-- Nivel del jugador y barra de experiencia -->
       <div id="menu-level">
         <span class="lvl-badge">NIVEL <span id="menu-level-num">1</span></span>
@@ -167,6 +169,6 @@
     </div>
   </div>
 
-  <script type="module" src="game.js?v=78"></script>
+  <script type="module" src="game.js?v=79"></script>
 </body>
 </html>

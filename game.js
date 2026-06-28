@@ -6665,6 +6665,21 @@ const elStatsList = document.getElementById("stats-list");
 const elAlbumScreen = document.getElementById("album-screen");
 const elAlbumList = document.getElementById("album-list");
 
+// Contador GLOBAL de visitas: cada carga suma 1 en un servicio gratuito de
+// contadores (sin registro) y muestra el total en el menú. Si el servicio falla,
+// el contador simplemente no se actualiza (no afecta al juego).
+function countVisit() {
+  const el = document.getElementById("visit-count");
+  if (!el) return;
+  // Solo contar una vez por carga de página (no en cada vuelta al menú).
+  if (window.__visitCounted) return;
+  window.__visitCounted = true;
+  fetch("https://abacus.jasoncameron.dev/hit/chickenrush-battlemundial/visitas")
+    .then((r) => r.json())
+    .then((d) => { if (d && typeof d.value === "number") el.textContent = d.value.toLocaleString("es-ES"); })
+    .catch(() => { el.textContent = "—"; });
+}
+
 // Carga la partida guardada y aplica skin + botones del menú.
 function initProgression() {
   loadSave();
@@ -6674,6 +6689,7 @@ function initProgression() {
   updateCoinDisplays();
   refreshWeeklyMissions();   // renueva misiones si ha cambiado la semana
   updateLevelDisplay();      // pinta nivel y barra de XP en el menú
+  countVisit();              // contador global de visitas (servicio externo gratis)
   document.getElementById("shop-btn").addEventListener("click", openShop);
   document.getElementById("ach-btn").addEventListener("click", openAch);
   document.getElementById("missions-btn").addEventListener("click", openMissions);
