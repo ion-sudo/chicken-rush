@@ -7195,10 +7195,16 @@ function renderShop() {
     });
   }
 
-  // Lista de artículos de la pestaña activa.
+  // Lista de artículos de la pestaña activa. A la lista normal le añadimos
+  // CUALQUIER cosmético que ya tengas desbloqueado y no esté en ella (por
+  // ejemplo, los premios del pase de batalla que hayas conseguido).
   const c = shopCategory(activeShopTab);
+  const ids = [...c.order];
+  for (const id of c.owned) {
+    if (!ids.includes(id) && c.catalog[id]) ids.push(id);
+  }
   let html = "";
-  for (const id of c.order) {
+  for (const id of ids) {
     const s = c.catalog[id];
     const owned = c.owned.has(id);
     const equipped = c.equipped === id;
