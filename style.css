@@ -644,6 +644,30 @@ body.theme-oro .overlay {
 }
 body.theme-oro .btn { box-shadow: 0 0 28px rgba(255, 215, 0, 0.7), 0 8px 0 rgba(0, 0, 0, 0.25); }
 
+/* Tema CR7 (dorado sobre azul oscuro) */
+body.theme-cr7 {
+  --neon-cyan: #ffe14a;
+  --neon-magenta: #ffd700;
+  --neon-yellow: #fff7c0;
+  --bg-dark: #0a1633;
+}
+body.theme-cr7 .overlay {
+  background: radial-gradient(circle at 50% 32%, rgba(24, 46, 110, 0.9), rgba(6, 12, 30, 0.97));
+}
+body.theme-cr7 .btn { box-shadow: 0 0 26px rgba(255, 215, 0, 0.7), 0 8px 0 rgba(0, 0, 0, 0.3); }
+
+/* Tema Harry Potter (mágico: granate y dorado sobre negro) */
+body.theme-hp {
+  --neon-cyan: #d4a017;
+  --neon-magenta: #8a1420;
+  --neon-yellow: #ffe9a8;
+  --bg-dark: #14060a;
+}
+body.theme-hp .overlay {
+  background: radial-gradient(circle at 50% 30%, rgba(70, 16, 26, 0.9), rgba(10, 4, 8, 0.98));
+}
+body.theme-hp .btn { box-shadow: 0 0 24px rgba(212, 160, 23, 0.6), 0 8px 0 rgba(0, 0, 0, 0.35); }
+
 /* ---------- Medallero de logros ---------- */
 .medal-grid {
   margin-top: 18px;
@@ -918,6 +942,60 @@ body.theme-light .album-section-title { color: #1a2240; }
 .dpad.left  { grid-column: 1; grid-row: 2; }
 .dpad.right { grid-column: 3; grid-row: 2; }
 .dpad.down  { grid-column: 2; grid-row: 3; }
+
+/* ---------- Indicador de habilidad especial (recarga) ---------- */
+#ability-hud {
+  position: absolute;
+  bottom: 92px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 15;
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-weight: 800;
+  font-size: 15px;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.45);
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  backdrop-filter: blur(4px);
+  pointer-events: none;
+  white-space: nowrap;
+}
+#ability-hud.ready {
+  border-color: var(--neon-yellow, #ffe600);
+  box-shadow: 0 0 14px var(--neon-yellow, #ffe600);
+  color: var(--neon-yellow, #ffe600);
+}
+
+/* ---------- Selector de hechizos (Harry Potter) ---------- */
+#spell-selector {
+  position: absolute;
+  bottom: 130px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 16;
+  display: flex;
+  gap: 8px;
+  pointer-events: none;
+}
+#spell-selector .spell {
+  padding: 8px 12px;
+  border-radius: 12px;
+  font-weight: 800;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.7);
+  background: rgba(20, 10, 25, 0.6);
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(4px);
+  white-space: nowrap;
+  transition: transform 0.1s ease;
+}
+#spell-selector .spell.selected {
+  color: #fff;
+  border-color: #d4a017;
+  box-shadow: 0 0 16px rgba(212, 160, 23, 0.8);
+  transform: scale(1.12);
+}
 
 /* ---------- Botón de acción del JEFE (móvil/iPad) ---------- */
 #boss-action-btn {

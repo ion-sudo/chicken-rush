@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Chicken Rush</title>
-  <link rel="stylesheet" href="style.css?v=80" />
+  <link rel="stylesheet" href="style.css?v=82" />
   <!-- Three.js por CDN mediante import map -->
   <script type="importmap">
   {
@@ -39,6 +39,16 @@
 
     <!-- Barra de power-ups activos (icono + cuenta atrás) -->
     <div id="powerup-bar"></div>
+
+    <!-- Indicador de la habilidad especial (recarga del balón CR7 / hechizo) -->
+    <div id="ability-hud" class="hidden"></div>
+
+    <!-- Selector de hechizos de Harry Potter (se ve al mantener ESPACIO) -->
+    <div id="spell-selector" class="hidden">
+      <div class="spell" data-i="0">🪄 Expelliarmus</div>
+      <div class="spell" data-i="1">🪶 Leviosa</div>
+      <div class="spell" data-i="2">🦌 Patronum</div>
+    </div>
 
     <!-- Aviso central al recoger un power-up -->
     <div id="powerup-toast"></div>
@@ -169,6 +179,6 @@
     </div>
   </div>
 
-  <script type="module" src="game.js?v=80"></script>
+  <script type="module" src="game.js?v=82"></script>
 </body>
 </html>

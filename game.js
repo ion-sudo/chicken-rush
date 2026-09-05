@@ -3518,11 +3518,23 @@ window.addEventListener("keydown", (e) => {
   switch (e.key) {
     case "ArrowUp": case "w": case "W": tryMove("forward"); break;
     case "ArrowDown": case "s": case "S": tryMove("back"); break;
-    case "ArrowLeft": case "a": case "A": tryMove("left"); break;
-    case "ArrowRight": case "d": case "D": tryMove("right"); break;
+    // Con el selector de hechizos abierto, izq/der cambian de hechizo (no mueven).
+    case "ArrowLeft": case "a": case "A": if (spellMenuOpen) spellMove(-1); else tryMove("left"); break;
+    case "ArrowRight": case "d": case "D": if (spellMenuOpen) spellMove(1); else tryMove("right"); break;
     // Bloque 11 (Parte 3): recoger / devolver el objeto en la pelea de jefe.
     case "l": case "L": case "q": case "Q": bossActionKey(); break;
+    // Habilidad especial (ESPACIO): balón de CR7 / hechizos de Harry Potter.
+    case " ": case "Spacebar":
+      e.preventDefault();
+      if (equippedSkin === "cr7") cr7Throw(performance.now() / 1000);
+      else if (equippedSkin === "potter" && !e.repeat) openSpellMenu();
+      break;
   }
+});
+
+// Al soltar ESPACIO con la skin Potter, se lanza el hechizo seleccionado.
+window.addEventListener("keyup", (e) => {
+  if ((e.key === " " || e.key === "Spacebar") && spellMenuOpen) castSelectedSpell();
 });
 
 // Swipe táctil.
@@ -3650,6 +3662,7 @@ function checkCollisions() {
   if (lane.type === ROW_ROAD || lane.type === ROW_SKYROAD || lane.type === ROW_DESERTROAD
       || lane.type === ROW_BUMPER || lane.type === ROW_CANNON || lane.type === ROW_ZHELI) {
     const now = performance.now() / 1000;
+    if (leviosaActive(now)) return;   // Leviosa: los coches flotan y no te atropellan
     for (const car of lane.cars) {
       const dx = Math.abs(car.mesh.position.x - px);
       if (dx < car.halfWidth + 0.35) {
@@ -3781,6 +3794,181 @@ function updateForcedAdvance(dt) {
   }
 }
 
+// ---- Habilidad de la skin CR7: lanzar el balón que revienta coches ----
+const cr7Balls = [];           // balones lanzados (proyectiles)
+let cr7CooldownUntil = 0;      // momento (s) hasta el que no se puede relanzar
+const CR7_COOLDOWN = 15;       // segundos de recarga
+
+function cr7CanThrow(now) {
+  return equippedSkin === "cr7" && gameState === "playing" && playerState.alive && now >= cr7CooldownUntil;
+}
+
+// ¿Es una fila con coches LETALES (para reventarlos)?
+function laneIsLethal(lane) {
+  return lane.type === ROW_ROAD || lane.type === ROW_SKYROAD || lane.type === ROW_DESERTROAD
+    || lane.type === ROW_BUMPER || lane.type === ROW_CANNON || lane.type === ROW_ZHELI;
+}
+
+function cr7Throw(now) {
+  if (!cr7CanThrow(now)) return;
+  cr7CooldownUntil = now + CR7_COOLDOWN;
+  const mesh = buildPetBall();
+  mesh.scale.setScalar(1.15);
+  mesh.position.set(player.position.x, 0.45, player.position.z);
+  scene.add(mesh);
+  cr7Balls.push({ mesh, startZ: player.position.z });
+  if (typeof sfxKick === "function") sfxKick();
+  spawnParticles(player.position.x, 0.5, player.position.z, 0xffd700, 8, { speed: 3, up: 1.5, life: 0.4 });
+}
+
+// Mueve los balones hacia delante y revienta los coches letales que toca.
+function updateCr7Balls(dt, now) {
+  for (let i = cr7Balls.length - 1; i >= 0; i--) {
+    const b = cr7Balls[i];
+    b.mesh.position.z -= 15 * dt;   // vuela hacia delante (adelante = -Z)
+    b.mesh.rotation.x -= dt * 14;   // rueda
+    const bz = b.mesh.position.z, bx = b.mesh.position.x;
+    for (const lane of rows.values()) {
+      if (!lane.cars || !laneIsLethal(lane)) continue;
+      if (Math.abs(lane.group.position.z - bz) > 0.8) continue;   // solo la fila que cruza
+      for (let k = lane.cars.length - 1; k >= 0; k--) {
+        const car = lane.cars[k];
+        if (Math.abs(car.mesh.position.x - bx) > 1.0) continue;
+        // ¡BOOM! Explota el coche.
+        const wx = car.mesh.position.x, wz = lane.group.position.z;
+        spawnParticles(wx, 0.6, wz, 0xffa500, 20, { speed: 4.5, up: 3.5, life: 0.7 });
+        spawnParticles(wx, 0.6, wz, 0xff3b3b, 14, { speed: 3.5, up: 2.5, life: 0.6 });
+        lane.group.remove(car.mesh);
+        car.mesh.traverse((o) => { if (o.geometry) o.geometry.dispose(); });
+        const av = activeVehicles.indexOf(car); if (av !== -1) activeVehicles.splice(av, 1);
+        lane.cars.splice(k, 1);
+        if (typeof sfxBoom === "function") sfxBoom();
+      }
+    }
+    // Quitar el balón cuando ya ha volado bastante.
+    if (b.startZ - b.mesh.position.z > 16) {
+      scene.remove(b.mesh);
+      b.mesh.traverse((o) => { if (o.geometry) o.geometry.dispose(); });
+      cr7Balls.splice(i, 1);
+    }
+  }
+}
+
+function clearCr7Balls() {
+  for (const b of cr7Balls) { scene.remove(b.mesh); b.mesh.traverse((o) => { if (o.geometry) o.geometry.dispose(); }); }
+  cr7Balls.length = 0;
+  cr7CooldownUntil = 0;
+}
+
+// Sonidos de la habilidad CR7.
+function sfxKick() { if (sfxMuted) return; ensureAudio(); tone(320, 0.08, "square", 0.3); chirp(600, 400, 200, 0.18, "sawtooth", 0.22); }
+function sfxBoom() { if (sfxMuted) return; ensureAudio(); tone(90, 0.22, "square", 0.35); tone(60, 0.28, "triangle", 0.3, null, 0.04); }
+
+// ---- Habilidad de la skin HARRY POTTER: hechizos con la varita ----
+// Mantén ESPACIO para abrir el selector de hechizos; con las flechas izq/der
+// eliges uno de los 3 (en fila); al soltar ESPACIO se lanza el hechizo elegido.
+const POTTER_SPELLS = ["expelliarmus", "leviosa", "patronum"];
+let spellIndex = 0;
+let spellMenuOpen = false;
+let leviosaUntil = 0;
+const patronuses = [];
+const elSpellSel = document.getElementById("spell-selector");
+
+function leviosaActive(now) { return now < leviosaUntil; }
+
+function openSpellMenu() {
+  if (equippedSkin !== "potter" || gameState !== "playing" || !playerState.alive) return;
+  spellMenuOpen = true;
+  if (elSpellSel) { elSpellSel.classList.remove("hidden"); renderSpellMenu(); }
+}
+function closeSpellMenu() {
+  spellMenuOpen = false;
+  if (elSpellSel) elSpellSel.classList.add("hidden");
+}
+function spellMove(d) {
+  spellIndex = (spellIndex + d + POTTER_SPELLS.length) % POTTER_SPELLS.length;
+  renderSpellMenu();
+}
+function renderSpellMenu() {
+  if (!elSpellSel) return;
+  const items = elSpellSel.querySelectorAll(".spell");
+  items.forEach((el, i) => el.classList.toggle("selected", i === spellIndex));
+}
+function castSelectedSpell() {
+  if (!spellMenuOpen) return;
+  closeSpellMenu();
+  const now = performance.now() / 1000;
+  const spell = POTTER_SPELLS[spellIndex];
+  if (spell === "expelliarmus") castExpelliarmus();
+  else if (spell === "leviosa") castLeviosa(now);
+  else if (spell === "patronum") castPatronum();
+}
+
+// Expelliarmus: elimina a los zombis (solo tiene efecto real en el nivel zombi).
+function castExpelliarmus() {
+  for (const z of zombies) {
+    spawnParticles(z.mesh.position.x, 0.6, z.mesh.position.z, 0xff5a5a, 12, { speed: 3.5, up: 2, life: 0.6 });
+    scene.remove(z.mesh); z.mesh.traverse((o) => { if (o.geometry) o.geometry.dispose(); });
+  }
+  zombies.length = 0;
+  spawnParticles(player.position.x, 0.9, player.position.z - 1, 0xffe9a8, 12, { speed: 4, up: 1.5, life: 0.5 });
+  sfxSpell();
+}
+
+// Wingardium Leviosa: levita todos los coches (no te pueden atropellar mientras dura).
+function castLeviosa(now) {
+  leviosaUntil = now + 4.5;
+  spawnParticles(player.position.x, 1.0, player.position.z, 0xffe9a8, 16, { speed: 2, up: 3.5, life: 0.9 });
+  sfxSpell();
+}
+function updateLeviosa(dt, now) {
+  const active = leviosaActive(now);
+  for (const lane of rows.values()) {
+    if (!lane.cars || !laneIsLethal(lane)) continue;
+    for (const car of lane.cars) {
+      if (car._levBaseY === undefined) car._levBaseY = car.mesh.position.y;
+      const target = active ? car._levBaseY + 1.9 : car._levBaseY;
+      car.mesh.position.y += (target - car.mesh.position.y) * Math.min(1, dt * 4);
+      if (active) car.mesh.rotation.z += dt * 1.5;      // giran flotando
+      else if (Math.abs(car.mesh.position.y - car._levBaseY) < 0.02) car.mesh.rotation.z = 0;
+    }
+  }
+}
+
+// Expecto Patronum: aparece un reno/ciervo azul que avanza y ahuyenta zombis.
+function castPatronum() {
+  const p = buildPatronus();
+  p.position.set(player.position.x, 0.2, player.position.z - 0.5);
+  p.rotation.y = Math.PI;   // mira hacia delante (-Z)
+  scene.add(p);
+  patronuses.push({ mesh: p, life: 3.5, maxLife: 3.5 });
+  for (let i = zombies.length - 1; i >= 0; i--) {
+    const z = zombies[i];
+    spawnParticles(z.mesh.position.x, 0.6, z.mesh.position.z, 0x9fd8ff, 10, { speed: 3, up: 2, life: 0.6 });
+    scene.remove(z.mesh); z.mesh.traverse((o) => { if (o.geometry) o.geometry.dispose(); });
+    zombies.splice(i, 1);
+  }
+  sfxSpell();
+}
+function updatePatronuses(dt, now) {
+  for (let i = patronuses.length - 1; i >= 0; i--) {
+    const p = patronuses[i];
+    p.life -= dt;
+    p.mesh.position.z -= dt * 3.5;
+    p.mesh.position.y = 0.2 + Math.sin(now * 4) * 0.1;
+    const k = Math.max(0, p.life / p.maxLife);
+    p.mesh.traverse((o) => { if (o.material && o.material.opacity !== undefined) o.material.opacity = 0.55 * k; });
+    if (p.life <= 0) { scene.remove(p.mesh); p.mesh.traverse((o) => { if (o.geometry) o.geometry.dispose(); }); patronuses.splice(i, 1); }
+  }
+}
+function clearPatronuses() {
+  for (const p of patronuses) { scene.remove(p.mesh); p.mesh.traverse((o) => { if (o.geometry) o.geometry.dispose(); }); }
+  patronuses.length = 0;
+  leviosaUntil = 0;
+  closeSpellMenu();
+}
+function sfxSpell() { if (sfxMuted) return; ensureAudio(); chirp(400, 900, 1500, 0.3, "sine", 0.3); tone(1760, 0.2, "sine", 0.14, null, 0.1); }
+
 // ---- Arenas movedizas del nivel 5 ----
 // Si el pollo se queda quieto sobre una casilla de arena movediza, se hunde
 // poco a poco; si no se mueve a tiempo, cae y pierde.
@@ -3819,6 +4007,20 @@ function updateQuicksand(dt) {
 // arena cubre la pantalla; luego se despeja gradualmente.
 const elSandstorm = document.getElementById("sandstorm");
 const elEagleWarn = document.getElementById("eagle-warning"); // aviso de "te alcanza el águila"
+const elAbilityHud = document.getElementById("ability-hud");   // recarga de la habilidad especial
+
+// Muestra la recarga de la habilidad especial (balón CR7). Se llama cada frame.
+function updateAbilityHud(now) {
+  if (!elAbilityHud) return;
+  if (equippedSkin === "cr7" && gameState === "playing") {
+    const left = cr7CooldownUntil - now;
+    elAbilityHud.classList.remove("hidden");
+    if (left <= 0) { elAbilityHud.textContent = "⚽ ¡LISTO! (ESPACIO)"; elAbilityHud.classList.add("ready"); }
+    else { elAbilityHud.textContent = "⚽ Recargando " + Math.ceil(left) + "s"; elAbilityHud.classList.remove("ready"); }
+  } else {
+    elAbilityHud.classList.add("hidden");
+  }
+}
 let stormStart = 0;       // instante en que empezó la tormenta actual
 let stormDur = 0;         // duración de la tormenta actual
 let nextStormAt = 0;      // instante de la próxima tormenta
@@ -4552,6 +4754,125 @@ let albumScreenOpen = false;
 
 // ---- Catálogo de skins ----
 // "classic" usa el color por nivel; el resto fijan aspecto propio.
+// Textura de texto (para poner "GOAT" en las gafas y en la pelota).
+function makeTextTexture(text, fg) {
+  const c = document.createElement("canvas");
+  c.width = 128; c.height = 64;
+  const ctx = c.getContext("2d");
+  ctx.clearRect(0, 0, c.width, c.height);
+  ctx.fillStyle = fg || "#ffd700";
+  ctx.font = "bold 42px Arial, sans-serif";
+  ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  ctx.fillText(text, c.width / 2, c.height / 2 + 2);
+  const tex = new THREE.CanvasTexture(c);
+  return tex;
+}
+
+// Accesorio de la skin CR7: corona + gafas de sol negras con "GOAT" en el medio.
+function buildCR7Gear() {
+  const g = new THREE.Group();
+  g.add(buildCrown());   // corona dorada de "rey del fútbol"
+  const frame  = new THREE.MeshStandardMaterial({ color: 0x0c0c10, roughness: 0.3, metalness: 0.5 });
+  const lensMat = new THREE.MeshStandardMaterial({ color: 0x07070c, roughness: 0.08, metalness: 0.8 });
+  for (const dx of [-0.13, 0.13]) {   // lentes
+    const lens = new THREE.Mesh(new THREE.BoxGeometry(0.17, 0.12, 0.03), lensMat);
+    lens.position.set(dx, 1.18, 0.585); g.add(lens);
+  }
+  const bridge = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.05, 0.03), frame); // puente
+  bridge.position.set(0, 1.18, 0.585); g.add(bridge);
+  for (const dx of [-0.22, 0.22]) {   // patillas
+    const armp = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.02, 0.02), frame);
+    armp.position.set(dx, 1.19, 0.5); g.add(armp);
+  }
+  // "GOAT" dorado atravesando las gafas.
+  const goat = new THREE.Mesh(
+    new THREE.PlaneGeometry(0.36, 0.1),
+    new THREE.MeshBasicMaterial({ map: makeTextTexture("GOAT", "#ffd700"), transparent: true })
+  );
+  goat.position.set(0, 1.18, 0.606); g.add(goat);
+  return g;
+}
+
+// Mascota CR7: balón de fútbol con gafas de sol y "GOAT". Flota y gira.
+function buildPetBall() {
+  const g = new THREE.Group();
+  const white = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.5 });
+  const black = new THREE.MeshStandardMaterial({ color: 0x151515, roughness: 0.5 });
+  const ball = new THREE.Mesh(new THREE.SphereGeometry(0.24, 16, 12), white);
+  ball.position.y = 0.42; g.add(ball);
+  // Parches negros repartidos (aspecto de balón clásico).
+  const patchGeo = new THREE.BoxGeometry(0.1, 0.1, 0.03);
+  for (const [x, y, z] of [[0, 0.42, 0.24], [0.17, 0.54, 0.12], [-0.17, 0.54, 0.12], [0.17, 0.3, -0.12], [-0.17, 0.3, -0.12], [0, 0.42, -0.24]]) {
+    const p = new THREE.Mesh(patchGeo, black);
+    p.position.set(x, y, z); p.lookAt(0, 0.42, 0); g.add(p);
+  }
+  // Gafas de sol en la cara (+Z).
+  const lensMat = new THREE.MeshStandardMaterial({ color: 0x07070c, roughness: 0.1, metalness: 0.7 });
+  for (const dx of [-0.09, 0.09]) {
+    const lens = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.08, 0.03), lensMat);
+    lens.position.set(dx, 0.47, 0.235); g.add(lens);
+  }
+  const bridge = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.03, 0.03), lensMat);
+  bridge.position.set(0, 0.47, 0.235); g.add(bridge);
+  // "GOAT" en una cinta bajo las gafas.
+  const goat = new THREE.Mesh(
+    new THREE.PlaneGeometry(0.3, 0.1),
+    new THREE.MeshBasicMaterial({ map: makeTextTexture("GOAT", "#111111"), transparent: true })
+  );
+  goat.position.set(0, 0.33, 0.245); g.add(goat);
+  g.userData = { float: true, ball: true };
+  return g;
+}
+
+// Accesorio de la skin Harry Potter: gafas redondas + cicatriz de rayo + bufanda.
+function buildPotterGear() {
+  const g = new THREE.Group();
+  const frame = new THREE.MeshStandardMaterial({ color: 0x151515, roughness: 0.4, metalness: 0.5 });
+  // Gafas redondas (dos aros) sobre los ojos.
+  for (const dx of [-0.13, 0.13]) {
+    const lens = new THREE.Mesh(new THREE.TorusGeometry(0.08, 0.018, 8, 18), frame);
+    lens.position.set(dx, 1.18, 0.575); g.add(lens);
+  }
+  const bridge = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.02, 0.02), frame);
+  bridge.position.set(0, 1.18, 0.575); g.add(bridge);
+  // Cicatriz de rayo en la frente.
+  const scarMat = new THREE.MeshStandardMaterial({ color: 0xd23a1e, emissive: 0x7a1400, emissiveIntensity: 0.4 });
+  const s1 = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.09, 0.02), scarMat);
+  s1.position.set(-0.05, 1.34, 0.53); s1.rotation.z = 0.5; g.add(s1);
+  const s2 = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.08, 0.02), scarMat);
+  s2.position.set(-0.02, 1.28, 0.53); s2.rotation.z = -0.5; g.add(s2);
+  // Bufanda de rayas (granate y dorado) al cuello.
+  for (let i = 0; i < 4; i++) {
+    const c = i % 2 === 0 ? 0x8a1420 : 0xd4a017;
+    const stripe = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.06, 0.5),
+      new THREE.MeshStandardMaterial({ color: c, roughness: 0.85 }));
+    stripe.position.set(0, 0.74 + i * 0.06, 0); g.add(stripe);
+  }
+  return g;
+}
+
+// Patronus (reno/ciervo azul translúcido) para el hechizo Expecto Patronum.
+function buildPatronus() {
+  const g = new THREE.Group();
+  const mat = new THREE.MeshBasicMaterial({ color: 0x9fd8ff, transparent: true, opacity: 0.55 });
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.42, 0.95), mat); body.position.y = 0.75; g.add(body);
+  const neck = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.42, 0.26), mat); neck.position.set(0, 1.05, 0.42); g.add(neck);
+  const head = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.28, 0.42), mat); head.position.set(0, 1.25, 0.58); g.add(head);
+  // Astas ramificadas.
+  for (const dx of [-0.11, 0.11]) {
+    for (let i = 0; i < 3; i++) {
+      const a = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.16, 0.04), mat);
+      a.position.set(dx * (1 + i * 0.35), 1.45 + i * 0.09, 0.52); a.rotation.z = dx < 0 ? 0.4 : -0.4; g.add(a);
+    }
+  }
+  // Patas.
+  for (const dx of [-0.16, 0.16]) for (const dz of [-0.32, 0.32]) {
+    const l = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.42, 0.09), mat);
+    l.position.set(dx, 0.42, dz); g.add(l);
+  }
+  return g;
+}
+
 const SKINS = {
   classic:   { name: "Clásico",    price: 0,  swatch: "#ffd21a" },
   neon:      { name: "Neón",       price: 20, swatch: "#ff2bd6", color: 0xff2bd6, emissive: 0xff2bd6, glow: 0.7, metal: 0.2, rough: 0.4 },
@@ -4602,6 +4923,11 @@ const SKINS = {
   // plumas claras envuelto por bandas de los 7 niveles + emblemas que orbitan +
   // corona, y la escolta de pollos guardaespaldas con esmoquin (updateLegendaryFx).
   cosmico:   { name: "Pollo Divino", price: 0, swatch: "rainbow", color: 0xffd24a, emissive: 0xffb020, glow: 0.7, metal: 0.9, rough: 0.15, accessory: buildLegendaryAura, exclusive: true, legendary: true },
+  // ---- Skins secretas por CÓDIGO (no salen en la tienda) ----
+  // CR7: corona + gafas "GOAT". Habilidad: lanzar el balón (mascota) con ESPACIO.
+  cr7:       { name: "CR7", price: 0, swatch: "#ffd700", color: 0xffe14a, emissive: 0x4a3a00, glow: 0.25, metal: 0.6, rough: 0.3, accessory: buildCR7Gear, exclusive: true, legendary: true },
+  // Harry Potter: gafas redondas + cicatriz + bufanda. Habilidad: hechizos con ESPACIO.
+  potter:    { name: "Harry Potter", price: 0, swatch: "#7a1420", color: 0x2a2438, emissive: 0x120a22, glow: 0.15, metal: 0.1, rough: 0.7, accessory: buildPotterGear, exclusive: true, legendary: true },
 };
 const SKIN_ORDER = ["cosmico", "classic", "neon", "astronaut", "golden", "robot", "ninja", "vaquero", "zombie", "diablo", "rey", "angel", "fiesta", "fuego", "hielo", "pirata", "mago", "punk", "chef", "arcoiris", "galaxia", "samurai", "vikingo", "detective", "graduado", "unicornio", "buzo", "flores", "cyber", "esqueleto", "lava", "chicle", "esmeralda", "obsidiana", "militar", "dj", "princesa", "navidad", "invierno", "bufon", "nerd", "espartano", "panda", "conejo"];
 
@@ -5410,6 +5736,9 @@ const TRAILS = {
   sombra:    { name: "Sombra",   price: 50, swatch: "#6a2bff", colors: [0x6a2bff, 0x3a1a88, 0x9b2bff], shape: "cube",    rise: 0.6, grav: 0.4, life: 0.9, count: 3, reqLevel: 6 },
   // ---- BLOQUE 11 (Parte 6): estela LEGENDARIA EXCLUSIVA (regalo del jefe) ----
   cosmica:   { name: "Cósmica",  price: 0,  swatch: "rainbow", colors: [0xff00cc, 0xffe600, 0x00f0ff, 0x6a2bff, 0x35d07f, 0xffffff], shape: "star", rise: 1.3, grav: 0.1, life: 1.4, count: 8, exclusive: true, big: true },
+  // ---- Estelas secretas por código (no salen en la tienda) ----
+  cr7:       { name: "CR7",      price: 0,  swatch: "#ffd700", colors: [0xffd700, 0xffffff, 0x111111], shape: "star", rise: 1.0, grav: 0.3, life: 1.1, count: 5, exclusive: true, big: true },
+  potter:    { name: "Mágica",   price: 0,  swatch: "#d4a017", colors: [0xd4a017, 0x8a1420, 0xffe9a8, 0x9fd0ff], shape: "star", rise: 0.9, grav: 0.2, life: 1.1, count: 4, exclusive: true },
 };
 const TRAIL_ORDER = ["none", "plumas", "fuego", "arcoiris", "estrellas", "burbujas", "oro", "neon", "nieve", "toxico", "sombra", "cosmica"];
 
@@ -5648,6 +5977,9 @@ const THEMES = {
   caramelo:{ name: "Caramelo",price: 30, swatch: "#ff8fd4" },
   lava:    { name: "Lava",    price: 35, swatch: "#ff4400" },
   oro:     { name: "Oro",     price: 40, swatch: "#ffd700", reqLevel: 5 },
+  // ---- Temas secretos por código (no salen en la tienda) ----
+  cr7:     { name: "CR7",     price: 0,  swatch: "#ffd700", exclusive: true },
+  hp:      { name: "Mágico",  price: 0,  swatch: "#7a1420", exclusive: true },
 };
 const THEME_ORDER = ["dark", "neon", "light", "retro", "bosque", "oceano", "caramelo", "lava", "oro"];
 
@@ -6012,6 +6344,8 @@ const PETS = {
   none:     { name: "Ninguna",  price: 0,   swatch: "#3a3550" },
   // Mascota EXCLUSIVA legendaria: solo se consigue venciendo al JEFE FINAL.
   cosmica:  { name: "Alien", price: 0, swatch: "#66c43a", build: buildPetCosmica, exclusive: true, legendary: true },
+  // Mascota secreta de la skin CR7 (balón GOAT). Se lanza con ESPACIO.
+  balon:    { name: "Balón GOAT", price: 0, swatch: "#ffffff", build: buildPetBall, exclusive: true, legendary: true },
   pollito:  { name: "Pollito",  price: 30,  swatch: "#ffd21a", build: buildPetChick },
   gato:     { name: "Gatito",   price: 40,  swatch: "#9aa3b2", build: buildPetCat },
   perro:    { name: "Perrito",  price: 40,  swatch: "#b5793f", build: buildPetDog },
@@ -6081,6 +6415,8 @@ function updatePet(dt, now) {
     petMesh.userData.arms[0].rotation.x = sway;
     petMesh.userData.arms[1].rotation.x = -sway;
   }
+  // Balón CR7: gira como una pelota rodando.
+  if (petMesh.userData.ball) petMesh.rotation.x -= dt * 3;
   // Mascota ALIEN: aura verde épica, disco de luz, estrellas en órbita, chispas
   // que ascienden, antena que parpadea y ojos que se balancean.
   if (petMesh.userData.cosmic) {
@@ -6986,12 +7322,17 @@ const MUSIC = {
   // Nivel 7 (lava): tema grave y tenso.
   7: { tempo: 175, wave: "square",   notes: [262, 294, 329, 294, 262, 0, 247, 0, 220, 247, 262, 247, 220, 0, 196, 0] },
 };
+// Musiquita MÁGICA original (compuesta para el juego, no es ningún tema con
+// derechos): melodía menor, misteriosa, en vals. Suena con la skin Harry Potter.
+MUSIC.hp = { tempo: 250, wave: "triangle", notes: [659, 0, 784, 0, 988, 880, 784, 0, 740, 0, 659, 0, 587, 0, 494, 0] };
+
 let musicTimer = null, musicStep = 0, musicData = null;
 function startMusic(lvl) {
   ensureAudio();
   if (!audioCtx) return;
   stopMusic();
-  musicData = MUSIC[lvl] || MUSIC[1];
+  // La skin Harry Potter trae su propia musiquita mágica en cualquier nivel.
+  musicData = (equippedSkin === "potter" && MUSIC.hp) ? MUSIC.hp : (MUSIC[lvl] || MUSIC[1]);
   musicStep = 0;
   musicTimer = setInterval(musicTick, musicData.tempo);
 }
@@ -7645,7 +7986,9 @@ function isBirthdaySurprise() {
 const CODE_ON = ["l", "o", "l"];
 const CODE_OFF = ["6", "7"];
 const CODE_EPIC = "calcetin sucio".split("");   // código secreto: desbloquea el Pollo Divino
-let onIdx = 0, offIdx = 0, epicIdx = 0;
+const CODE_CR7 = "cr7".split("");               // desbloquea la skin CR7 (+ balón, estela, tema)
+const CODE_HP = "hp".split("");                 // desbloquea la skin Harry Potter
+let onIdx = 0, offIdx = 0, epicIdx = 0, cr7Idx = 0, hpIdx = 0;
 let konamiArmed = false;            // una vez activado, los sombreros vuelven en cada partida
 window.addEventListener("keydown", (e) => {
   const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
@@ -7674,7 +8017,42 @@ window.addEventListener("keydown", (e) => {
   } else {
     epicIdx = (k === CODE_EPIC[0]) ? 1 : 0;
   }
+  // Desbloquear la skin CR7 con "cr7".
+  if (k === CODE_CR7[cr7Idx]) {
+    cr7Idx++;
+    if (cr7Idx >= CODE_CR7.length) { cr7Idx = 0; unlockCR7Now(); }
+  } else {
+    cr7Idx = (k === CODE_CR7[0]) ? 1 : 0;
+  }
+  // Desbloquear la skin Harry Potter con "hp".
+  if (k === CODE_HP[hpIdx]) {
+    hpIdx++;
+    if (hpIdx >= CODE_HP.length) { hpIdx = 0; unlockPotterNow(); }
+  } else {
+    hpIdx = (k === CODE_HP[0]) ? 1 : 0;
+  }
 });
+
+// Desbloquea y equipa el pack Harry Potter (skin + estela + tema + música).
+function unlockPotterNow() {
+  ownedSkins.add("potter"); ownedTrails.add("potter"); ownedThemes.add("hp");
+  equippedSkin = "potter"; equippedTrail = "potter"; equippedTheme = "hp"; equippedPet = "none";
+  applySkin(level); applyPet(); applyTheme("hp");
+  if (gameState === "playing") startMusic(level);   // cambiar ya a la musiquita mágica
+  saveProgress();
+  if (typeof sfxSpell === "function") sfxSpell();
+  if (typeof bigToast === "function") bigToast("⚡", "¡SKIN HARRY POTTER!", "Mantén ESPACIO para lanzar hechizos");
+}
+
+// Desbloquea y equipa el pack CR7 (skin + balón + estela + tema).
+function unlockCR7Now() {
+  ownedSkins.add("cr7"); ownedPets.add("balon"); ownedTrails.add("cr7"); ownedThemes.add("cr7");
+  equippedSkin = "cr7"; equippedPet = "balon"; equippedTrail = "cr7"; equippedTheme = "cr7";
+  applySkin(level); applyPet(); applyTheme("cr7");
+  saveProgress();
+  if (typeof sfxLegendary === "function") sfxLegendary();
+  if (typeof bigToast === "function") bigToast("🐐", "¡SKIN CR7!", "GOAT · lanza el balón con ESPACIO");
+}
 
 // Atajo de prueba: desbloquea y equipa la skin legendaria + estela + mascota +
 // guardaespaldas sin tener que vencer al jefe. (Se puede borrar cuando quieras.)
@@ -7705,6 +8083,8 @@ function startLevel(n) {
   clearLavaMonsters();     // Nivel 7: limpiar monstruos de lava del nivel anterior
   clearTrailParticles();   // Bloque 5: limpiar rastros del nivel anterior
   clearCrossers();         // Bloque 9: limpiar cruces decorativos del nivel anterior
+  clearCr7Balls();         // limpiar balones de CR7 del nivel anterior
+  clearPatronuses();       // limpiar hechizos de Harry Potter del nivel anterior
   clearBossFight();        // Bloque 11: limpiar la pelea de jefe si veníamos de ella
   coinDance.active = false; duckGlanceReturn = false; // Bloque 9: resetear estados de humor
   // Bloque 10: resetear poses, enfado de menú y caras especiales.
@@ -8636,6 +9016,8 @@ function startBossFight() {
   clearLavaMonsters();     // Nivel 7: limpiar monstruos de lava antes de la pelea
   clearTrailParticles();
   clearCrossers();
+  clearCr7Balls();         // limpiar balones de CR7 antes de la pelea
+  clearPatronuses();       // limpiar hechizos de Harry Potter antes de la pelea
 
   // Reset del pollito al centro de la arena, vivo y mirando al jefe.
   playerState.col = 0; playerState.row = 0; playerState.maxRow = 0;
@@ -8912,6 +9294,8 @@ function goToMenu() {
   setPanic(false);        // por si quedó la cara de pánico de la muerte
   removeDeathGhost();     // limpiar el fantasmita al volver al menú
   clearCrossers();        // Bloque 9: limpiar cruces decorativos
+  clearCr7Balls();        // limpiar balones de CR7
+  clearPatronuses();      // limpiar hechizos de Harry Potter
   clearBossFight();       // Bloque 11: limpiar la pelea de jefe si veníamos de ella
   coinDance.active = false; duckGlanceReturn = false; // Bloque 9: resetear estados de humor
   // Bloque 10: dejar el pollito del menú limpio (sin poses, caras ni sombreros).
@@ -8971,6 +9355,10 @@ function animate() {
     checkTrainCollision();      // Nivel 5: colisión con el tren
     updateNearMiss(now);        // Bloque 6: detección de "casi"
     updateForcedAdvance(dt);
+    updateCr7Balls(dt, now);    // habilidad CR7: balones que revientan coches
+    updateLeviosa(dt, now);     // hechizo Leviosa: coches levitando
+    updatePatronuses(dt, now);  // hechizo Patronum: reno azul
+    updateAbilityHud(now);      // recarga de la habilidad especial
     updateParticles(dt);
     updateAmbient(dt, now);     // Bloque 6: vida ambiental decorativa
     updatePet(dt, now);         // Bloque 7: mascota acompañante
@@ -9048,6 +9436,8 @@ function animate() {
   updateLegendaryFx(dt);    // Bloque 11 (Parte 6): aura animada de la skin legendaria
   // Fuera del juego activo, asegurar que el aviso del águila no se quede pegado.
   if (gameState !== "playing" && elEagleWarn) elEagleWarn.classList.remove("show");
+  if (gameState !== "playing" && elAbilityHud) elAbilityHud.classList.add("hidden");
+  if (gameState !== "playing" && spellMenuOpen) closeSpellMenu();
 
   renderer.render(scene, camera);
 }
