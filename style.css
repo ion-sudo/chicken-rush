@@ -668,6 +668,72 @@ body.theme-hp .overlay {
 }
 body.theme-hp .btn { box-shadow: 0 0 24px rgba(212, 160, 23, 0.6), 0 8px 0 rgba(0, 0, 0, 0.35); }
 
+/* Temas del pase de batalla */
+body.theme-bp_sunset { --neon-cyan: #ff9a3a; --neon-magenta: #ff3060; --neon-yellow: #ffd08a; --bg-dark: #2a1020; }
+body.theme-bp_sunset .overlay { background: radial-gradient(circle at 50% 30%, rgba(120, 40, 40, 0.9), rgba(30, 10, 20, 0.97)); }
+body.theme-bp_aqua { --neon-cyan: #16e0ff; --neon-magenta: #00b0d0; --neon-yellow: #9fe8ff; --bg-dark: #06222e; }
+body.theme-bp_aqua .overlay { background: radial-gradient(circle at 50% 32%, rgba(16, 90, 120, 0.9), rgba(4, 16, 26, 0.97)); }
+body.theme-bp_candy { --neon-cyan: #ff8fd4; --neon-magenta: #ff5db1; --neon-yellow: #fff0a0; --bg-dark: #2a1024; }
+body.theme-bp_candy .overlay { background: radial-gradient(circle at 50% 30%, rgba(150, 60, 120, 0.9), rgba(40, 14, 34, 0.97)); }
+
+/* ---------- Botón y pantalla del PASE DE BATALLA ---------- */
+.btn-pass {
+  margin-top: 14px;
+  background: linear-gradient(90deg, #ff2bd6, #ffd200, #00f0ff, #35d07f, #ff2bd6);
+  background-size: 300% 100%;
+  color: #10121f;
+  text-shadow: 0 1px 0 rgba(255,255,255,0.4);
+  border: none;
+  animation: bpShine 4s linear infinite;
+}
+@keyframes bpShine { 0% { background-position: 0% 0; } 100% { background-position: 300% 0; } }
+
+.bp-wrap {
+  margin: 16px auto;
+  width: min(560px, 92vw);
+  max-height: 62vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 4px;
+}
+.bp-tier {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  border-radius: 14px;
+  background: rgba(255,255,255,0.06);
+  border: 2px solid rgba(255,255,255,0.12);
+  opacity: 0.55;
+}
+.bp-tier.unlocked {
+  opacity: 1;
+  background: linear-gradient(90deg, rgba(255,43,214,0.18), rgba(0,240,255,0.14));
+  border-color: var(--neon-yellow, #ffe600);
+  box-shadow: 0 0 14px rgba(255,214,0,0.35);
+}
+.bp-tier.current { border-color: #00f0ff; box-shadow: 0 0 18px rgba(0,240,255,0.6); }
+.bp-lvl {
+  flex: 0 0 auto;
+  width: 44px; height: 44px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 50%;
+  font-weight: 900; font-size: 16px;
+  background: rgba(0,0,0,0.35);
+  border: 2px solid rgba(255,255,255,0.25);
+}
+.bp-tier.unlocked .bp-lvl { background: linear-gradient(135deg, #ffd200, #ff7a2e); color: #10121f; border-color: #fff; }
+.bp-reward { flex: 1 1 auto; display: flex; align-items: center; gap: 10px; text-align: left; }
+.bp-reward .bp-ic { font-size: 24px; }
+.bp-reward .bp-name { font-weight: 800; font-size: 15px; }
+.bp-reward .bp-type { font-size: 11px; opacity: 0.7; text-transform: uppercase; letter-spacing: 0.5px; }
+.bp-swatch { width: 22px; height: 22px; border-radius: 6px; border: 2px solid rgba(255,255,255,0.5); }
+.bp-state { flex: 0 0 auto; font-size: 12px; font-weight: 800; }
+.bp-tier.unlocked .bp-state { color: #35d07f; }
+.bp-tier:not(.unlocked) .bp-state { color: rgba(255,255,255,0.6); }
+
 /* ---------- Medallero de logros ---------- */
 .medal-grid {
   margin-top: 18px;

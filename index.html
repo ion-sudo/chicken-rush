@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Chicken Rush</title>
-  <link rel="stylesheet" href="style.css?v=82" />
+  <link rel="stylesheet" href="style.css?v=84" />
   <!-- Three.js por CDN mediante import map -->
   <script type="importmap">
   {
@@ -93,6 +93,7 @@
         <button id="stats-btn" class="btn btn-sm">ESTADÍSTICAS</button>
         <button id="album-btn" class="btn btn-sm">ÁLBUM</button>
       </div>
+      <button id="pass-btn" class="btn btn-sm btn-pass">🎁 PASE DE BATALLA</button>
       <button id="reset-btn" class="btn btn-sm btn-danger">REINICIAR JUEGO</button>
       <p class="hint">Flechas / WASD &nbsp;·&nbsp; Swipe en móvil</p>
     </div>
@@ -134,6 +135,14 @@
       <h1 class="screen-title">ÁLBUM</h1>
       <div id="album-list" class="album-wrap"></div>
       <button id="album-back" class="btn">VOLVER</button>
+    </div>
+
+    <!-- Pase de batalla: 50 premios exclusivos que se consiguen al subir de nivel -->
+    <div id="battlepass-screen" class="overlay hidden">
+      <h1 class="screen-title">PASE DE BATALLA</h1>
+      <p class="subtitle">¡Sube de nivel y consigue premios exclusivos! · <span id="bp-progress"></span></p>
+      <div id="bp-list" class="bp-wrap"></div>
+      <button id="bp-back" class="btn">VOLVER</button>
     </div>
 
     <!-- Aviso de logro desbloqueado -->
@@ -179,6 +188,6 @@
     </div>
   </div>
 
-  <script type="module" src="game.js?v=82"></script>
+  <script type="module" src="game.js?v=84"></script>
 </body>
 </html>

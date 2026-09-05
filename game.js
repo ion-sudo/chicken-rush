@@ -387,6 +387,8 @@ function safeRowType() {
   return ROW_GRASS;
 }
 
+// Recuerda el último tipo elegido en el circo para no repetir carrusel seguido.
+let _lastCircusPick = null;
 // Decide qué tipo de fila generar según el nivel.
 // Las primeras filas y la zona de meta son seguras.
 function pickRowType(row) {
@@ -424,10 +426,15 @@ function pickRowType(row) {
   if (level === 6) {
     // Nivel 6 (Circo / Parque): coches de choque, carruseles y cañones.
     // Más fácil: menos peligros y más pista segura de feria (ROW_CIRCUS).
-    if (r < 0.24) return ROW_BUMPER;
-    if (r < 0.44) return ROW_CAROUSEL;
-    if (r < 0.56) return ROW_CANNON;
-    return ROW_CIRCUS;
+    let t;
+    if (r < 0.24) t = ROW_BUMPER;
+    else if (r < 0.44) t = ROW_CAROUSEL;
+    else if (r < 0.56) t = ROW_CANNON;
+    else t = ROW_CIRCUS;
+    // No dos filas de carrusel seguidas: se solapaban visualmente (bug).
+    if (t === ROW_CAROUSEL && _lastCircusPick === ROW_CAROUSEL) t = ROW_CIRCUS;
+    _lastCircusPick = t;
+    return t;
   }
   // Nivel 7: lava con rocas móviles. Más lava que hierba (más difícil).
   return r < 0.58 ? ROW_LAVA : ROW_GRASS;
@@ -1395,44 +1402,44 @@ function buildCarouselHorse(color) {
 // rayada. Funciona como una plataforma móvil (te lleva, como un tronco).
 function buildCarousel() {
   const g = new THREE.Group();
-  const len = 1.9;
-  const r = len / 2;
-  // Plataforma de madera.
+  const len = 1.5;              // más pequeño: no invade las filas de al lado
+  const r = len / 2;           // radio 0.75
+  // Plataforma de madera (donde te subes; el CENTRO queda libre para el pollo).
   const disc = new THREE.Mesh(
     new THREE.CylinderGeometry(r, r, 0.2, 20),
     new THREE.MeshStandardMaterial({ color: 0x8a5a3c, roughness: 0.8 })
   );
   disc.position.y = 0.05; disc.receiveShadow = true; g.add(disc);
-  // Borde dorado con bombillas de feria (puntos luminosos alrededor).
+  // Borde dorado con bombillas de feria.
   const rim = new THREE.Mesh(
-    new THREE.TorusGeometry(r, 0.07, 8, 24),
+    new THREE.TorusGeometry(r, 0.06, 8, 24),
     new THREE.MeshStandardMaterial({ color: 0xffcf3a, metalness: 0.7, roughness: 0.3, emissive: 0x6a5210, emissiveIntensity: 0.4 })
   );
   rim.rotation.x = Math.PI / 2; rim.position.y = 0.16; g.add(rim);
   const bulbMat = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xfff0b0, emissiveIntensity: 1.2 });
   for (let i = 0; i < 10; i++) {
     const a = (i / 10) * Math.PI * 2;
-    const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.04, 6, 5), bulbMat);
+    const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.035, 6, 5), bulbMat);
     bulb.position.set(Math.cos(a) * r, 0.16, Math.sin(a) * r); g.add(bulb);
   }
-  // Poste central rayado.
+  // Poste central fino y alto (deja libre el sitio del jinete).
   const pole = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.06, 0.06, 1.0, 10),
+    new THREE.CylinderGeometry(0.045, 0.045, 1.75, 10),
     new THREE.MeshStandardMaterial({ color: 0xffe0c0, roughness: 0.5 })
   );
-  pole.position.y = 0.62; g.add(pole);
-  // Caballitos repartidos alrededor del poste.
+  pole.position.y = 1.02; g.add(pole);
+  // Caballitos PEQUEÑOS pegados al borde (no en el centro), mirando tangente.
   const horseColors = [0xff2b4d, 0x00f0ff, 0xffe600, 0x7c4dff];
-  const nHorses = 3;
-  for (let i = 0; i < nHorses; i++) {
-    const a = (i / nHorses) * Math.PI * 2;
+  for (let i = 0; i < 4; i++) {
+    const a = (i / 4) * Math.PI * 2;
     const horse = buildCarouselHorse(horseColors[i % horseColors.length]);
-    horse.position.set(Math.cos(a) * (r * 0.62), 0, Math.sin(a) * (r * 0.62));
-    horse.rotation.y = -a + Math.PI / 2; // mirar tangente (como girando)
+    horse.scale.setScalar(0.65);
+    horse.position.set(Math.cos(a) * (r * 0.9), 0, Math.sin(a) * (r * 0.9));
+    horse.rotation.y = -a + Math.PI / 2;
     g.add(horse);
   }
-  // Carpa cónica rayada (roja con gajos crema) sobre los caballitos.
-  const roofR = r * 0.95;
+  // Carpa cónica rayada ALTA (por encima de la cabeza del pollo, no lo atraviesa).
+  const roofR = r * 1.0;
   const segs = 8;
   for (let i = 0; i < segs; i++) {
     const a0 = (i / segs) * Math.PI * 2;
@@ -1441,22 +1448,14 @@ function buildCarousel() {
       new THREE.ConeGeometry(roofR, 0.5, 4, 1, true, a0, (Math.PI * 2) / segs),
       new THREE.MeshStandardMaterial({ color: wedgeColor, roughness: 0.6, emissive: wedgeColor, emissiveIntensity: 0.12, side: THREE.DoubleSide })
     );
-    wedge.position.y = 1.32; g.add(wedge);
-  }
-  // Faldón ondulado bajo la carpa (puntos crema).
-  const valMat = new THREE.MeshStandardMaterial({ color: 0xfff0e0, roughness: 0.7 });
-  for (let i = 0; i < 10; i++) {
-    const a = (i / 10) * Math.PI * 2;
-    const tab = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.12, 0.04), valMat);
-    tab.position.set(Math.cos(a) * roofR, 1.06, Math.sin(a) * roofR);
-    tab.rotation.y = -a; g.add(tab);
+    wedge.position.y = 2.05; g.add(wedge);
   }
   // Banderín en la cúspide.
   const flag = new THREE.Mesh(
     new THREE.BoxGeometry(0.16, 0.1, 0.02),
     new THREE.MeshStandardMaterial({ color: 0x00f0ff, emissive: 0x00f0ff, emissiveIntensity: 0.7 })
   );
-  flag.position.set(0.09, 1.62, 0); g.add(flag);
+  flag.position.set(0.09, 2.35, 0); g.add(flag);
   g.userData.len = len;
   return g;
 }
@@ -3812,21 +3811,33 @@ function laneIsLethal(lane) {
 function cr7Throw(now) {
   if (!cr7CanThrow(now)) return;
   cr7CooldownUntil = now + CR7_COOLDOWN;
-  const mesh = buildPetBall();
-  mesh.scale.setScalar(1.15);
-  mesh.position.set(player.position.x, 0.45, player.position.z);
+  // La pelota (balón realista) se coloca EN MEDIO, justo delante del pollo.
+  const mesh = buildSoccerBall(0.26);
+  const bx = player.position.x, bz = player.position.z - 0.55;
+  mesh.position.set(bx, 0.26, bz);
   scene.add(mesh);
-  cr7Balls.push({ mesh, startZ: player.position.z });
-  if (typeof sfxKick === "function") sfxKick();
-  spawnParticles(player.position.x, 0.5, player.position.z, 0xffd700, 8, { speed: 3, up: 1.5, life: 0.4 });
+  // Estado "windup": pequeño bote y luego chuta (patada) al pollo.
+  cr7Balls.push({ mesh, startZ: bz, state: "windup", t: 0 });
 }
 
 // Mueve los balones hacia delante y revienta los coches letales que toca.
 function updateCr7Balls(dt, now) {
   for (let i = cr7Balls.length - 1; i >= 0; i--) {
     const b = cr7Balls[i];
-    b.mesh.position.z -= 15 * dt;   // vuela hacia delante (adelante = -Z)
-    b.mesh.rotation.x -= dt * 14;   // rueda
+    // Fase de colocar y chutar (la pelota se pone en medio y el pollo la patea).
+    if (b.state === "windup") {
+      b.t += dt;
+      b.mesh.position.y = 0.26 + Math.abs(Math.sin(b.t * 22)) * 0.12;   // botecito
+      b.mesh.rotation.y += dt * 6;
+      if (b.t >= 0.28) {
+        b.state = "fly";
+        if (typeof sfxKick === "function") sfxKick();
+        spawnParticles(b.mesh.position.x, 0.4, b.mesh.position.z, 0xffffff, 12, { speed: 4.5, up: 2, life: 0.35 });
+      }
+      continue;
+    }
+    b.mesh.position.z -= 16 * dt;   // vuela hacia delante (adelante = -Z)
+    b.mesh.rotation.x -= dt * 16;   // rueda
     const bz = b.mesh.position.z, bx = b.mesh.position.x;
     for (const lane of rows.values()) {
       if (!lane.cars || !laneIsLethal(lane)) continue;
@@ -4751,6 +4762,7 @@ let shopScreenOpen = false;
 let achScreenOpen = false;
 let statsScreenOpen = false;
 let albumScreenOpen = false;
+let bpScreenOpen = false;
 
 // ---- Catálogo de skins ----
 // "classic" usa el color por nivel; el resto fijan aspecto propio.
@@ -4771,42 +4783,62 @@ function makeTextTexture(text, fg) {
 // Accesorio de la skin CR7: corona + gafas de sol negras con "GOAT" en el medio.
 function buildCR7Gear() {
   const g = new THREE.Group();
-  g.add(buildCrown());   // corona dorada de "rey del fútbol"
-  const frame  = new THREE.MeshStandardMaterial({ color: 0x0c0c10, roughness: 0.3, metalness: 0.5 });
-  const lensMat = new THREE.MeshStandardMaterial({ color: 0x07070c, roughness: 0.08, metalness: 0.8 });
-  for (const dx of [-0.13, 0.13]) {   // lentes
+  // "CR7" en el pecho (delante) sobre la camiseta roja.
+  const front = new THREE.Mesh(
+    new THREE.PlaneGeometry(0.5, 0.22),
+    new THREE.MeshBasicMaterial({ map: makeTextTexture("CR7", "#ffffff"), transparent: true })
+  );
+  front.position.set(0, 0.55, 0.44); g.add(front);
+  // "7" grande en la espalda.
+  const back = new THREE.Mesh(
+    new THREE.PlaneGeometry(0.42, 0.42),
+    new THREE.MeshBasicMaterial({ map: makeTextTexture("7", "#ffffff"), transparent: true })
+  );
+  back.position.set(0, 0.6, -0.44); back.rotation.y = Math.PI; g.add(back);
+  // Gafas de sol negras con "GOAT".
+  const lensMat = new THREE.MeshStandardMaterial({ color: 0x07070c, roughness: 0.1, metalness: 0.8 });
+  for (const dx of [-0.13, 0.13]) {
     const lens = new THREE.Mesh(new THREE.BoxGeometry(0.17, 0.12, 0.03), lensMat);
     lens.position.set(dx, 1.18, 0.585); g.add(lens);
   }
-  const bridge = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.05, 0.03), frame); // puente
-  bridge.position.set(0, 1.18, 0.585); g.add(bridge);
-  for (const dx of [-0.22, 0.22]) {   // patillas
-    const armp = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.02, 0.02), frame);
-    armp.position.set(dx, 1.19, 0.5); g.add(armp);
-  }
-  // "GOAT" dorado atravesando las gafas.
   const goat = new THREE.Mesh(
-    new THREE.PlaneGeometry(0.36, 0.1),
+    new THREE.PlaneGeometry(0.36, 0.09),
     new THREE.MeshBasicMaterial({ map: makeTextTexture("GOAT", "#ffd700"), transparent: true })
   );
   goat.position.set(0, 1.18, 0.606); g.add(goat);
+  // Botas mini (verdes con suela).
+  const bootMat = new THREE.MeshStandardMaterial({ color: 0x18c46e, roughness: 0.5 });
+  const soleMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.6 });
+  for (const dx of [-0.13, 0.13]) {
+    const boot = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.1, 0.26), bootMat);
+    boot.position.set(dx, 0.08, 0.14); g.add(boot);
+    const sole = new THREE.Mesh(new THREE.BoxGeometry(0.17, 0.03, 0.27), soleMat);
+    sole.position.set(dx, 0.02, 0.14); g.add(sole);
+  }
   return g;
 }
 
-// Mascota CR7: balón de fútbol con gafas de sol y "GOAT". Flota y gira.
+// Balón de fútbol realista (esfera blanca con manchas negras repartidas).
+function buildSoccerBall(R) {
+  const g = new THREE.Group();
+  const white = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.45 });
+  const black = new THREE.MeshStandardMaterial({ color: 0x141414, roughness: 0.45 });
+  const ball = new THREE.Mesh(new THREE.SphereGeometry(R, 20, 16), white);
+  g.add(ball);
+  const dirs = [[0, 1, 0], [0, -1, 0], [0.9, 0.35, 0.3], [-0.9, 0.35, -0.3], [0.3, 0.35, 0.9], [-0.3, 0.35, -0.9], [0.65, -0.45, 0.6], [-0.65, -0.45, -0.6]];
+  for (const d of dirs) {
+    const n = new THREE.Vector3(d[0], d[1], d[2]).normalize();
+    const spot = new THREE.Mesh(new THREE.SphereGeometry(R * 0.32, 8, 6), black);
+    spot.position.set(n.x * R * 0.98, n.y * R * 0.98, n.z * R * 0.98);
+    g.add(spot);
+  }
+  return g;
+}
+
+// Mascota CR7: balón realista con gafas de sol y "GOAT". Flota y gira.
 function buildPetBall() {
   const g = new THREE.Group();
-  const white = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.5 });
-  const black = new THREE.MeshStandardMaterial({ color: 0x151515, roughness: 0.5 });
-  const ball = new THREE.Mesh(new THREE.SphereGeometry(0.24, 16, 12), white);
-  ball.position.y = 0.42; g.add(ball);
-  // Parches negros repartidos (aspecto de balón clásico).
-  const patchGeo = new THREE.BoxGeometry(0.1, 0.1, 0.03);
-  for (const [x, y, z] of [[0, 0.42, 0.24], [0.17, 0.54, 0.12], [-0.17, 0.54, 0.12], [0.17, 0.3, -0.12], [-0.17, 0.3, -0.12], [0, 0.42, -0.24]]) {
-    const p = new THREE.Mesh(patchGeo, black);
-    p.position.set(x, y, z); p.lookAt(0, 0.42, 0); g.add(p);
-  }
-  // Gafas de sol en la cara (+Z).
+  const ball = buildSoccerBall(0.24); ball.position.y = 0.42; g.add(ball);
   const lensMat = new THREE.MeshStandardMaterial({ color: 0x07070c, roughness: 0.1, metalness: 0.7 });
   for (const dx of [-0.09, 0.09]) {
     const lens = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.08, 0.03), lensMat);
@@ -4814,9 +4846,8 @@ function buildPetBall() {
   }
   const bridge = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.03, 0.03), lensMat);
   bridge.position.set(0, 0.47, 0.235); g.add(bridge);
-  // "GOAT" en una cinta bajo las gafas.
   const goat = new THREE.Mesh(
-    new THREE.PlaneGeometry(0.3, 0.1),
+    new THREE.PlaneGeometry(0.3, 0.09),
     new THREE.MeshBasicMaterial({ map: makeTextTexture("GOAT", "#111111"), transparent: true })
   );
   goat.position.set(0, 0.33, 0.245); g.add(goat);
@@ -4824,30 +4855,112 @@ function buildPetBall() {
   return g;
 }
 
-// Accesorio de la skin Harry Potter: gafas redondas + cicatriz de rayo + bufanda.
+// Mascota de la skin Harry Potter: un elfo doméstico (homenaje a Dobby) con
+// orejas enormes, ojos grandes y una funda de almohada por ropa.
+function buildPetDobby() {
+  const g = new THREE.Group();
+  const skin  = new THREE.MeshStandardMaterial({ color: 0xcdb58a, roughness: 0.85 });
+  const cloth = new THREE.MeshStandardMaterial({ color: 0xe6e0cf, roughness: 0.9 });
+  const white = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.4 });
+  // Cuerpo (funda de almohada).
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.3, 0.2), cloth); body.position.y = 0.34; g.add(body);
+  // Cabeza grande.
+  const head = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.3, 0.28), skin); head.position.y = 0.62; g.add(head);
+  // Orejas enormes (se mueven en updatePet).
+  const ears = [];
+  for (const side of [-1, 1]) {
+    const ear = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.24, 0.17), skin);
+    ear.position.set(side * 0.22, 0.66, 0); ear.rotation.z = side * 0.5; g.add(ear); ears.push(ear);
+  }
+  // Ojos grandes verdes.
+  for (const dx of [-0.08, 0.08]) {
+    const eyeW = new THREE.Mesh(new THREE.SphereGeometry(0.06, 10, 8), white); eyeW.position.set(dx, 0.64, 0.15); g.add(eyeW);
+    const pup = new THREE.Mesh(new THREE.SphereGeometry(0.03, 8, 6),
+      new THREE.MeshStandardMaterial({ color: 0x2ea86a, emissive: 0x0a3a20, emissiveIntensity: 0.3 })); pup.position.set(dx, 0.64, 0.2); g.add(pup);
+  }
+  // Nariz larga y boca.
+  const nose = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.05, 0.13), skin); nose.position.set(0, 0.58, 0.18); g.add(nose);
+  // Bracitos y piernas.
+  for (const dx of [-0.16, 0.16]) { const arm = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.16, 0.05), skin); arm.position.set(dx, 0.34, 0.02); g.add(arm); }
+  for (const dx of [-0.08, 0.08]) { const leg = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.12, 0.06), skin); leg.position.set(dx, 0.1, 0.02); g.add(leg); }
+  g.userData = { ears: true, earMeshes: ears };
+  return g;
+}
+
+// ---- Mascotas exclusivas del PASE DE BATALLA ----
+function buildPetStar() { // estrella dorada brillante que flota
+  const g = new THREE.Group();
+  const star = new THREE.Mesh(new THREE.OctahedronGeometry(0.2),
+    new THREE.MeshStandardMaterial({ color: 0xffe14a, emissive: 0xffb020, emissiveIntensity: 1.1, roughness: 0.2, metalness: 0.6 }));
+  star.scale.set(1, 1.4, 1); star.position.y = 0.5; g.add(star);
+  const aura = new THREE.Mesh(new THREE.SphereGeometry(0.3, 14, 12),
+    new THREE.MeshBasicMaterial({ color: 0xffe14a, transparent: true, opacity: 0.18, side: THREE.BackSide }));
+  aura.position.y = 0.5; g.add(aura);
+  g.userData = { float: true, spinY: true };
+  return g;
+}
+function buildPetHeart() { // corazón rosa que flota
+  const g = new THREE.Group();
+  const mat = new THREE.MeshStandardMaterial({ color: 0xff5db1, emissive: 0xff2bd6, emissiveIntensity: 0.5, roughness: 0.4 });
+  for (const dx of [-0.09, 0.09]) { const lobe = new THREE.Mesh(new THREE.SphereGeometry(0.12, 12, 10), mat); lobe.position.set(dx, 0.55, 0); g.add(lobe); }
+  const tip = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.2, 0.2), mat); tip.position.set(0, 0.44, 0); tip.rotation.z = Math.PI / 4; g.add(tip);
+  g.userData = { float: true, spinY: true };
+  return g;
+}
+function buildPetCrystal() { // cristal cian flotante
+  const g = new THREE.Group();
+  const mat = new THREE.MeshStandardMaterial({ color: 0x00f0ff, emissive: 0x00b0d0, emissiveIntensity: 0.9, roughness: 0.15, metalness: 0.5, transparent: true, opacity: 0.85 });
+  const c = new THREE.Mesh(new THREE.OctahedronGeometry(0.19), mat); c.scale.set(1, 1.7, 1); c.position.y = 0.52; g.add(c);
+  g.userData = { float: true, spinY: true };
+  return g;
+}
+
+// Accesorio de la skin Harry Potter: gafas redondas, cicatriz de rayo, capa
+// negra de mago, corbata de rayas granate/dorado y una varita mágica.
 function buildPotterGear() {
   const g = new THREE.Group();
   const frame = new THREE.MeshStandardMaterial({ color: 0x151515, roughness: 0.4, metalness: 0.5 });
-  // Gafas redondas (dos aros) sobre los ojos.
+  const robe  = new THREE.MeshStandardMaterial({ color: 0x1a1520, roughness: 0.85 });
+  const maroon = new THREE.MeshStandardMaterial({ color: 0x8a1420, roughness: 0.85 });
+  const gold   = new THREE.MeshStandardMaterial({ color: 0xd4a017, roughness: 0.7, metalness: 0.3 });
+  const white  = new THREE.MeshStandardMaterial({ color: 0xf0f0f0, roughness: 0.7 });
+
+  // Gafas redondas.
   for (const dx of [-0.13, 0.13]) {
-    const lens = new THREE.Mesh(new THREE.TorusGeometry(0.08, 0.018, 8, 18), frame);
+    const lens = new THREE.Mesh(new THREE.TorusGeometry(0.085, 0.02, 8, 18), frame);
     lens.position.set(dx, 1.18, 0.575); g.add(lens);
   }
   const bridge = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.02, 0.02), frame);
   bridge.position.set(0, 1.18, 0.575); g.add(bridge);
+  for (const dx of [-0.22, 0.22]) {   // patillas
+    const arm = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.02, 0.02), frame);
+    arm.position.set(dx, 1.19, 0.5); g.add(arm);
+  }
   // Cicatriz de rayo en la frente.
   const scarMat = new THREE.MeshStandardMaterial({ color: 0xd23a1e, emissive: 0x7a1400, emissiveIntensity: 0.4 });
   const s1 = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.09, 0.02), scarMat);
   s1.position.set(-0.05, 1.34, 0.53); s1.rotation.z = 0.5; g.add(s1);
   const s2 = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.08, 0.02), scarMat);
   s2.position.set(-0.02, 1.28, 0.53); s2.rotation.z = -0.5; g.add(s2);
-  // Bufanda de rayas (granate y dorado) al cuello.
-  for (let i = 0; i < 4; i++) {
-    const c = i % 2 === 0 ? 0x8a1420 : 0xd4a017;
-    const stripe = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.06, 0.5),
-      new THREE.MeshStandardMaterial({ color: c, roughness: 0.85 }));
-    stripe.position.set(0, 0.74 + i * 0.06, 0); g.add(stripe);
+  // Capa negra de mago (hombros + espalda).
+  const collar = new THREE.Mesh(new THREE.BoxGeometry(0.78, 0.14, 0.9), robe);
+  collar.position.set(0, 0.78, 0); g.add(collar);
+  const cape = new THREE.Mesh(new THREE.BoxGeometry(0.74, 0.55, 0.12), robe);
+  cape.position.set(0, 0.5, -0.42); g.add(cape);
+  // Camisa blanca + corbata de rayas granate/dorado en el pecho.
+  const shirt = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.34, 0.06), white);
+  shirt.position.set(0, 0.55, 0.44); g.add(shirt);
+  for (let i = 0; i < 5; i++) {
+    const tie = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.06, 0.04), i % 2 === 0 ? maroon : gold);
+    tie.position.set(0, 0.66 - i * 0.06, 0.47); g.add(tie);
   }
+  // Varita mágica (a un lado, apuntando adelante).
+  const wand = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.022, 0.4, 6),
+    new THREE.MeshStandardMaterial({ color: 0x3a281a, roughness: 0.7 }));
+  wand.rotation.x = Math.PI / 2.4; wand.position.set(0.34, 0.5, 0.3); g.add(wand);
+  const tip = new THREE.Mesh(new THREE.SphereGeometry(0.03, 8, 6),
+    new THREE.MeshStandardMaterial({ color: 0xfff0b0, emissive: 0xffe070, emissiveIntensity: 0.9 }));
+  tip.position.set(0.4, 0.66, 0.42); g.add(tip);
   return g;
 }
 
@@ -4925,11 +5038,18 @@ const SKINS = {
   cosmico:   { name: "Pollo Divino", price: 0, swatch: "rainbow", color: 0xffd24a, emissive: 0xffb020, glow: 0.7, metal: 0.9, rough: 0.15, accessory: buildLegendaryAura, exclusive: true, legendary: true },
   // ---- Skins secretas por CÓDIGO (no salen en la tienda) ----
   // CR7: corona + gafas "GOAT". Habilidad: lanzar el balón (mascota) con ESPACIO.
-  cr7:       { name: "CR7", price: 0, swatch: "#ffd700", color: 0xffe14a, emissive: 0x4a3a00, glow: 0.25, metal: 0.6, rough: 0.3, accessory: buildCR7Gear, exclusive: true, legendary: true },
+  cr7:       { name: "CR7", price: 0, swatch: "#c8102e", color: 0xc8102e, emissive: 0x3a0008, glow: 0.15, metal: 0.2, rough: 0.5, accessory: buildCR7Gear, exclusive: true, legendary: true, unlockHint: "Desbloquéala con un código secreto" },
   // Harry Potter: gafas redondas + cicatriz + bufanda. Habilidad: hechizos con ESPACIO.
-  potter:    { name: "Harry Potter", price: 0, swatch: "#7a1420", color: 0x2a2438, emissive: 0x120a22, glow: 0.15, metal: 0.1, rough: 0.7, accessory: buildPotterGear, exclusive: true, legendary: true },
+  potter:    { name: "Harry Potter", price: 0, swatch: "#7a1420", color: 0x3a2a1e, emissive: 0x120a22, glow: 0.12, metal: 0.1, rough: 0.75, accessory: buildPotterGear, exclusive: true, legendary: true, unlockHint: "Desbloquéala con un código secreto" },
+  // ---- Skins EXCLUSIVAS del PASE DE BATALLA (no salen en la tienda) ----
+  bp_aqua:   { name: "Aqua",       price: 0, swatch: "#16e0ff", color: 0x16e0ff, emissive: 0x00b0d0, glow: 0.6, metal: 0.6, rough: 0.25, accessory: buildVisor, exclusive: true, bp: true },
+  bp_sunset: { name: "Atardecer",  price: 0, swatch: "#ff7a2e", color: 0xff7a2e, emissive: 0xff3060, glow: 0.5, metal: 0.3, rough: 0.4, accessory: buildHat, exclusive: true, bp: true },
+  bp_shadow: { name: "Sombra",     price: 0, swatch: "#2a2440", color: 0x201a33, emissive: 0x6a2bff, glow: 0.45, metal: 0.5, rough: 0.4, accessory: buildMohawk, exclusive: true, bp: true },
+  bp_royal:  { name: "Realeza",    price: 0, swatch: "#8a4bff", color: 0x6a2bff, emissive: 0x2a0a55, glow: 0.4, metal: 0.5, rough: 0.35, accessory: buildCrown, exclusive: true, bp: true },
+  bp_frost:  { name: "Escarcha",   price: 0, swatch: "#bff0ff", color: 0xdff4ff, emissive: 0x7ac8ff, glow: 0.45, metal: 0.6, rough: 0.2, accessory: buildBeanie, exclusive: true, bp: true },
+  bp_ember:  { name: "Brasa",      price: 0, swatch: "#ff3000", color: 0x2a0a06, emissive: 0xff4400, glow: 1.0, metal: 0.4, rough: 0.4, accessory: buildHorns, exclusive: true, bp: true },
 };
-const SKIN_ORDER = ["cosmico", "classic", "neon", "astronaut", "golden", "robot", "ninja", "vaquero", "zombie", "diablo", "rey", "angel", "fiesta", "fuego", "hielo", "pirata", "mago", "punk", "chef", "arcoiris", "galaxia", "samurai", "vikingo", "detective", "graduado", "unicornio", "buzo", "flores", "cyber", "esqueleto", "lava", "chicle", "esmeralda", "obsidiana", "militar", "dj", "princesa", "navidad", "invierno", "bufon", "nerd", "espartano", "panda", "conejo"];
+const SKIN_ORDER = ["cosmico", "cr7", "potter", "classic", "neon", "astronaut", "golden", "robot", "ninja", "vaquero", "zombie", "diablo", "rey", "angel", "fiesta", "fuego", "hielo", "pirata", "mago", "punk", "chef", "arcoiris", "galaxia", "samurai", "vikingo", "detective", "graduado", "unicornio", "buzo", "flores", "cyber", "esqueleto", "lava", "chicle", "esmeralda", "obsidiana", "militar", "dj", "princesa", "navidad", "invierno", "bufon", "nerd", "espartano", "panda", "conejo"];
 
 // Accesorios de skin (se cuelgan del pollo en coordenadas locales).
 function buildHelmet() {
@@ -5694,6 +5814,12 @@ const ACCESSORIES = {
   bufanda_dj:  { name: "Cresta punk",  price: 35, swatch: "#00e5ff", build: buildMohawk },
   birrete:     { name: "Birrete",      price: 30, swatch: "#14141c", build: buildGradCap },
   snorkel:     { name: "Snorkel",      price: 30, swatch: "#9fe8ff", build: buildSnorkel },
+  // ---- Accesorios EXCLUSIVOS del PASE DE BATALLA ----
+  bp_corona:   { name: "Corona real",  price: 0, swatch: "#ffd700", build: buildCrown, exclusive: true, bp: true },
+  bp_aureola:  { name: "Aureola+",     price: 0, swatch: "#fff3a0", build: buildHalo, exclusive: true, bp: true },
+  bp_tiara:    { name: "Tiara real",   price: 0, swatch: "#ffd76a", build: buildTiara, exclusive: true, bp: true },
+  bp_cresta:   { name: "Cresta neón",  price: 0, swatch: "#00e5ff", build: buildMohawk, exclusive: true, bp: true },
+  bp_globo:    { name: "Globo VIP",    price: 0, swatch: "#ff3b6b", build: buildBalloonAcc, exclusive: true, bp: true },
 };
 const ACCESSORY_ORDER = ["none", "gorro", "gafas", "corona", "casco", "aureola", "cuernos", "vaquero", "flor", "pajarita", "bufanda", "monoculo", "bigote", "parche", "auriculares", "globo", "tiara", "santa", "bufanda_dj", "birrete", "snorkel"];
 
@@ -5739,6 +5865,12 @@ const TRAILS = {
   // ---- Estelas secretas por código (no salen en la tienda) ----
   cr7:       { name: "CR7",      price: 0,  swatch: "#ffd700", colors: [0xffd700, 0xffffff, 0x111111], shape: "star", rise: 1.0, grav: 0.3, life: 1.1, count: 5, exclusive: true, big: true },
   potter:    { name: "Mágica",   price: 0,  swatch: "#d4a017", colors: [0xd4a017, 0x8a1420, 0xffe9a8, 0x9fd0ff], shape: "star", rise: 0.9, grav: 0.2, life: 1.1, count: 4, exclusive: true },
+  // ---- Estelas EXCLUSIVAS del PASE DE BATALLA ----
+  bp_aqua:   { name: "Aqua",      price: 0, swatch: "#16e0ff", colors: [0x16e0ff, 0x9fe8ff, 0xffffff], shape: "star", rise: 1.1, grav: -0.6, life: 0.9, count: 3, exclusive: true, bp: true },
+  bp_ember:  { name: "Brasas",    price: 0, swatch: "#ff5a14", colors: [0xff5a14, 0xffb000, 0xff2000], shape: "cube", rise: 1.4, grav: -1.4, life: 0.6, count: 3, exclusive: true, bp: true },
+  bp_candy:  { name: "Caramelo",  price: 0, swatch: "#ff8fd4", colors: [0xff8fd4, 0xfff0a0, 0x9fe8ff], shape: "star", rise: 0.9, grav: 0.5, life: 0.9, count: 3, exclusive: true, bp: true },
+  bp_shadow: { name: "Sombras",   price: 0, swatch: "#6a2bff", colors: [0x6a2bff, 0x2a1055, 0x9b2bff], shape: "cube", rise: 0.6, grav: 0.4, life: 1.0, count: 3, exclusive: true, bp: true },
+  bp_gold:   { name: "Oro Real",  price: 0, swatch: "#ffd700", colors: [0xffd700, 0xfff3a0, 0xffaa00], shape: "star", rise: 0.8, grav: 0.6, life: 1.0, count: 4, exclusive: true, bp: true, big: true },
 };
 const TRAIL_ORDER = ["none", "plumas", "fuego", "arcoiris", "estrellas", "burbujas", "oro", "neon", "nieve", "toxico", "sombra", "cosmica"];
 
@@ -5980,6 +6112,10 @@ const THEMES = {
   // ---- Temas secretos por código (no salen en la tienda) ----
   cr7:     { name: "CR7",     price: 0,  swatch: "#ffd700", exclusive: true },
   hp:      { name: "Mágico",  price: 0,  swatch: "#7a1420", exclusive: true },
+  // ---- Temas EXCLUSIVOS del PASE DE BATALLA ----
+  bp_sunset: { name: "Atardecer", price: 0, swatch: "#ff7a2e", exclusive: true, bp: true },
+  bp_aqua:   { name: "Aqua",      price: 0, swatch: "#16e0ff", exclusive: true, bp: true },
+  bp_candy:  { name: "Caramelo+", price: 0, swatch: "#ff8fd4", exclusive: true, bp: true },
 };
 const THEME_ORDER = ["dark", "neon", "light", "retro", "bosque", "oceano", "caramelo", "lava", "oro"];
 
@@ -6008,6 +6144,12 @@ const PIOS = {
   campana: { name: "Campana", price: 25, swatch: "#bff0ff", play: () => { tone(1318, 0.8, "sine", 0.34); tone(3640, 0.6, "sine", 0.12); tone(7120, 0.45, "sine", 0.05); tone(659, 0.8, "sine", 0.12); } }, // parciales inarmónicos = repique metálico
   ufo:     { name: "OVNI",    price: 30, swatch: "#8a2be2", play: () => { chirp(620, 880, 560, 0.4, "sine", 0.26); chirp(560, 760, 640, 0.4, "sine", 0.2, null, 0.4); chirp(312, 442, 282, 0.8, "sine", 0.1); } }, // warble de platillo volante
   grito:   { name: "Grito",   price: 20, swatch: "#ff3b3b", play: () => { chirp(1500, 1050, 360, 0.32, "sawtooth", 0.32); chirp(1500, 1050, 360, 0.32, "square", 0.14); } }, // chillido que cae
+  // ---- Píos EXCLUSIVOS del PASE DE BATALLA ----
+  bp_boing:  { name: "Boing",  price: 0, swatch: "#35d07f", exclusive: true, bp: true, play: () => { chirp(300, 700, 260, 0.22, "sine", 0.3); } },
+  bp_magia:  { name: "Magia",  price: 0, swatch: "#c77dff", exclusive: true, bp: true, play: () => { chirp(500, 1000, 1600, 0.22, "sine", 0.28); tone(1760, 0.12, "sine", 0.12, null, 0.08); } },
+  bp_zap:    { name: "Zap",    price: 0, swatch: "#00f0ff", exclusive: true, bp: true, play: () => { chirp(1800, 900, 2400, 0.14, "square", 0.26); } },
+  bp_corn:   { name: "Corneta",price: 0, swatch: "#ffd700", exclusive: true, bp: true, play: () => { tone(392, 0.1, "sawtooth", 0.28); tone(523, 0.16, "sawtooth", 0.26, null, 0.1); } },
+  bp_pop:    { name: "Pop",    price: 0, swatch: "#ff8fd4", exclusive: true, bp: true, play: () => { tone(880, 0.05, "sine", 0.3); tone(1320, 0.08, "sine", 0.24, null, 0.05); } },
 };
 const PIO_ORDER = ["none", "classic", "agudo", "grave", "robot", "dulce", "laser", "moneda", "trompeta", "ocho", "campana", "ufo", "grito"];
 
@@ -6346,6 +6488,12 @@ const PETS = {
   cosmica:  { name: "Alien", price: 0, swatch: "#66c43a", build: buildPetCosmica, exclusive: true, legendary: true },
   // Mascota secreta de la skin CR7 (balón GOAT). Se lanza con ESPACIO.
   balon:    { name: "Balón GOAT", price: 0, swatch: "#ffffff", build: buildPetBall, exclusive: true, legendary: true },
+  // Mascota secreta de la skin Harry Potter (elfo doméstico Dobby).
+  dobby:    { name: "Dobby", price: 0, swatch: "#cdb58a", build: buildPetDobby, exclusive: true, legendary: true },
+  // ---- Mascotas EXCLUSIVAS del PASE DE BATALLA ----
+  bp_estrella: { name: "Estrellita", price: 0, swatch: "#ffe14a", build: buildPetStar, exclusive: true, bp: true },
+  bp_corazon:  { name: "Corazón",    price: 0, swatch: "#ff5db1", build: buildPetHeart, exclusive: true, bp: true },
+  bp_cristal:  { name: "Cristal",    price: 0, swatch: "#00f0ff", build: buildPetCrystal, exclusive: true, bp: true },
   pollito:  { name: "Pollito",  price: 30,  swatch: "#ffd21a", build: buildPetChick },
   gato:     { name: "Gatito",   price: 40,  swatch: "#9aa3b2", build: buildPetCat },
   perro:    { name: "Perrito",  price: 40,  swatch: "#b5793f", build: buildPetDog },
@@ -6417,6 +6565,14 @@ function updatePet(dt, now) {
   }
   // Balón CR7: gira como una pelota rodando.
   if (petMesh.userData.ball) petMesh.rotation.x -= dt * 3;
+  // Mascotas del pase que giran sobre sí mismas.
+  if (petMesh.userData.spinY) petMesh.rotation.y += dt * 2;
+  // Dobby: las orejotas se menean.
+  if (petMesh.userData.earMeshes) {
+    const w = Math.sin(now * 5) * 0.25;
+    petMesh.userData.earMeshes[0].rotation.z = -0.5 - w;
+    petMesh.userData.earMeshes[1].rotation.z = 0.5 + w;
+  }
   // Mascota ALIEN: aura verde épica, disco de luz, estrellas en órbita, chispas
   // que ascienden, antena que parpadea y ojos que se balancean.
   if (petMesh.userData.cosmic) {
@@ -6502,6 +6658,8 @@ function loadSave() {
   // Bloque 7: mascota acompañante.
   ownedPets = new Set(data.pets || ["none"]); ownedPets.add("none");
   equippedPet = data.pet || "none";
+  // Pase de batalla: niveles ya reclamados.
+  battlePassClaimed = new Set(data.pass || []);
   // Bloque 7: estadísticas a largo plazo.
   stats = Object.assign(
     { games: 0, bestStreak: 0, carsDodged: 0, coinsTotal: 0, distance: 0 },
@@ -6536,6 +6694,7 @@ function saveProgress() {
       // Bloque 7: mascota + estadísticas.
       pets: [...ownedPets],
       pet: equippedPet,
+      pass: [...battlePassClaimed],   // pase de batalla
       stats,
     }));
   } catch (e) { /* almacenamiento no disponible */ }
@@ -6637,6 +6796,7 @@ function addXp(n) {
     playerLevel++;
     applyLevelReward(playerLevel);
   }
+  syncBattlePass(true);   // entregar los premios del pase de batalla de los niveles nuevos
   saveProgress();
   updateLevelDisplay();
 }
@@ -6653,6 +6813,96 @@ function applyLevelReward(level) {
   sfxAchievement();
   showLevelToast(level, "+" + (r.coins || 0) + " monedas" + extra);
   if (shopScreenOpen) renderShop();
+}
+
+// ============================================================================
+//  PASE DE BATALLA — 50 premios EXCLUSIVOS que se consiguen al subir de nivel.
+//  Cada nivel del jugador desbloquea (automáticamente) el premio de ese peldaño.
+// ============================================================================
+const BATTLE_PASS = [
+  { lvl: 1,  type: "coins", n: 25 },
+  { lvl: 2,  type: "pio",       id: "bp_boing" },
+  { lvl: 3,  type: "coins", n: 30 },
+  { lvl: 4,  type: "trail",     id: "bp_aqua" },
+  { lvl: 5,  type: "skin",      id: "bp_aqua" },
+  { lvl: 6,  type: "coins", n: 35 },
+  { lvl: 7,  type: "accessory", id: "bp_cresta" },
+  { lvl: 8,  type: "pet",       id: "bp_estrella" },
+  { lvl: 9,  type: "coins", n: 40 },
+  { lvl: 10, type: "theme",     id: "bp_aqua" },
+  { lvl: 11, type: "pio",       id: "bp_zap" },
+  { lvl: 12, type: "skin",      id: "bp_sunset" },
+  { lvl: 13, type: "coins", n: 45 },
+  { lvl: 14, type: "trail",     id: "bp_ember" },
+  { lvl: 15, type: "accessory", id: "bp_globo" },
+  { lvl: 16, type: "coins", n: 50 },
+  { lvl: 17, type: "pet",       id: "bp_corazon" },
+  { lvl: 18, type: "pio",       id: "bp_pop" },
+  { lvl: 19, type: "coins", n: 55 },
+  { lvl: 20, type: "skin",      id: "bp_shadow" },
+  { lvl: 21, type: "theme",     id: "bp_sunset" },
+  { lvl: 22, type: "coins", n: 60 },
+  { lvl: 23, type: "trail",     id: "bp_candy" },
+  { lvl: 24, type: "accessory", id: "bp_tiara" },
+  { lvl: 25, type: "pet",       id: "bp_cristal" },
+  { lvl: 26, type: "coins", n: 65 },
+  { lvl: 27, type: "pio",       id: "bp_magia" },
+  { lvl: 28, type: "skin",      id: "bp_frost" },
+  { lvl: 29, type: "coins", n: 70 },
+  { lvl: 30, type: "trail",     id: "bp_shadow" },
+  { lvl: 31, type: "accessory", id: "bp_aureola" },
+  { lvl: 32, type: "coins", n: 75 },
+  { lvl: 33, type: "theme",     id: "bp_candy" },
+  { lvl: 34, type: "pio",       id: "bp_corn" },
+  { lvl: 35, type: "skin",      id: "bp_royal" },
+  { lvl: 36, type: "coins", n: 80 },
+  { lvl: 37, type: "trail",     id: "bp_gold" },
+  { lvl: 38, type: "coins", n: 85 },
+  { lvl: 39, type: "accessory", id: "bp_corona" },
+  { lvl: 40, type: "skin",      id: "bp_ember" },
+  { lvl: 41, type: "coins", n: 90 },
+  { lvl: 42, type: "coins", n: 95 },
+  { lvl: 43, type: "coins", n: 100 },
+  { lvl: 44, type: "coins", n: 100 },
+  { lvl: 45, type: "coins", n: 110 },
+  { lvl: 46, type: "coins", n: 120 },
+  { lvl: 47, type: "coins", n: 130 },
+  { lvl: 48, type: "coins", n: 140 },
+  { lvl: 49, type: "coins", n: 150 },
+  { lvl: 50, type: "coins", n: 300 },
+];
+let battlePassClaimed = new Set();   // niveles cuyo premio ya se ha entregado
+
+// Iconos por tipo de premio (para la pantalla del pase).
+const BP_ICONS = { coins: "🪙", skin: "👕", pet: "🐾", trail: "✨", pio: "🎵", theme: "🎨", accessory: "🎩" };
+
+// Entrega el premio de un peldaño (añade el cosmético/monedas). Devuelve su nombre.
+function grantPassReward(t) {
+  if (t.type === "coins") { addCoins(t.n); return "+" + t.n + " monedas"; }
+  if (t.type === "skin")      { ownedSkins.add(t.id);       return "Skin " + (SKINS[t.id] ? SKINS[t.id].name : t.id); }
+  if (t.type === "pet")       { ownedPets.add(t.id);        return "Mascota " + (PETS[t.id] ? PETS[t.id].name : t.id); }
+  if (t.type === "trail")     { ownedTrails.add(t.id);      return "Estela " + (TRAILS[t.id] ? TRAILS[t.id].name : t.id); }
+  if (t.type === "pio")       { ownedPios.add(t.id);        return "Pío " + (PIOS[t.id] ? PIOS[t.id].name : t.id); }
+  if (t.type === "theme")     { ownedThemes.add(t.id);      return "Tema " + (THEMES[t.id] ? THEMES[t.id].name : t.id); }
+  if (t.type === "accessory") { ownedAccessories.add(t.id); return "Accesorio " + (ACCESSORIES[t.id] ? ACCESSORIES[t.id].name : t.id); }
+  return "";
+}
+
+// Entrega automáticamente todos los premios del pase hasta el nivel actual.
+function syncBattlePass(announce) {
+  let granted = 0;
+  for (const t of BATTLE_PASS) {
+    if (playerLevel >= t.lvl && !battlePassClaimed.has(t.lvl)) {
+      battlePassClaimed.add(t.lvl);
+      grantPassReward(t);
+      granted++;
+    }
+  }
+  if (granted > 0) {
+    saveProgress();
+    if (announce && typeof bigToast === "function") bigToast("🎁", "¡PASE DE BATALLA!", granted + (granted === 1 ? " premio nuevo" : " premios nuevos"));
+    if (bpScreenOpen) renderBattlePass();
+  }
 }
 
 function updateLevelDisplay() {
@@ -6839,11 +7089,11 @@ function renderShop() {
     let action;
     if (equipped) action = '<button class="skin-action equip" disabled>EQUIPADO</button>';
     else if (owned) action = '<button class="skin-action equip" data-equip="' + id + '">EQUIPAR</button>';
-    else if (exclusiveLocked) action = '<button class="skin-action" disabled>🏆 Vence al jefe</button>';
+    else if (exclusiveLocked) action = '<button class="skin-action" disabled>' + (s.unlockHint ? "🔑 Código" : "🏆 Vence al jefe") + "</button>";
     else if (locked) action = '<button class="skin-action" disabled>🔒 Nivel ' + s.reqLevel + "</button>";
     else action = '<button class="skin-action" data-buy="' + id + '"' + (walletCoins < s.price ? " disabled" : "") + '><span class="coin-icon"></span> ' + s.price + "</button>";
     const sub = owned ? (s.legendary ? "✦ LEGENDARIA ✦" : "Desbloqueado")
-      : exclusiveLocked ? "Exclusiva: vence al JEFE FINAL"
+      : exclusiveLocked ? (s.unlockHint || "Exclusiva: vence al JEFE FINAL")
       : locked ? ("Requiere nivel " + s.reqLevel)
       : ("Precio: " + s.price + " monedas");
     html += '<div class="skin-card' + (equipped ? " equipped" : "") + (s.legendary ? " legendary" : "") + '">' +
@@ -6978,6 +7228,40 @@ function closeStats() { statsScreenOpen = false; elStatsScreen.classList.add("hi
 function openAlbum() { albumScreenOpen = true; renderAlbum(); elStart.classList.add("hidden"); elAlbumScreen.classList.remove("hidden"); }
 function closeAlbum() { albumScreenOpen = false; elAlbumScreen.classList.add("hidden"); elStart.classList.remove("hidden"); }
 
+function openBattlePass() { bpScreenOpen = true; renderBattlePass(); elStart.classList.add("hidden"); if (elBpScreen) elBpScreen.classList.remove("hidden"); }
+function closeBattlePass() { bpScreenOpen = false; if (elBpScreen) elBpScreen.classList.add("hidden"); elStart.classList.remove("hidden"); }
+
+// Pinta el "track" del pase de batalla (50 peldaños, coloridos).
+function renderBattlePass() {
+  const list = document.getElementById("bp-list");
+  if (!list) return;
+  const prog = document.getElementById("bp-progress");
+  if (prog) prog.textContent = "Nivel " + playerLevel + " · " + battlePassClaimed.size + "/" + BATTLE_PASS.length + " premios";
+  let html = "";
+  for (const t of BATTLE_PASS) {
+    const unlocked = playerLevel >= t.lvl;
+    const current = playerLevel === t.lvl;
+    let icon = BP_ICONS[t.type] || "🎁";
+    let name, swatch = null;
+    if (t.type === "coins") { name = "+" + t.n + " monedas"; }
+    else {
+      const cat = { skin: SKINS, pet: PETS, trail: TRAILS, pio: PIOS, theme: THEMES, accessory: ACCESSORIES }[t.type];
+      const it = cat && cat[t.id];
+      name = it ? it.name : t.id;
+      swatch = it ? it.swatch : null;
+    }
+    const typeLabel = { coins: "Monedas", skin: "Skin", pet: "Mascota", trail: "Estela", pio: "Pío", theme: "Tema", accessory: "Accesorio" }[t.type] || "";
+    const swHtml = swatch ? '<span class="bp-swatch" style="' + swatchStyle(swatch) + '"></span>' : "";
+    html += '<div class="bp-tier' + (unlocked ? " unlocked" : "") + (current ? " current" : "") + '">' +
+      '<span class="bp-lvl">' + t.lvl + '</span>' +
+      '<span class="bp-reward"><span class="bp-ic">' + icon + '</span>' + swHtml +
+      '<span><div class="bp-name">' + name + '</div><div class="bp-type">' + typeLabel + '</div></span></span>' +
+      '<span class="bp-state">' + (unlocked ? "✓" : "🔒 Nv " + t.lvl) + '</span>' +
+      '</div>';
+  }
+  list.innerHTML = html;
+}
+
 // DOM de las pantallas nuevas.
 const elMenuCoins = document.getElementById("menu-coin-count");
 const elShopCoins = document.getElementById("shop-coin-count");
@@ -7000,6 +7284,7 @@ const elStatsScreen = document.getElementById("stats-screen");
 const elStatsList = document.getElementById("stats-list");
 const elAlbumScreen = document.getElementById("album-screen");
 const elAlbumList = document.getElementById("album-list");
+const elBpScreen = document.getElementById("battlepass-screen");
 
 // Contador GLOBAL de JUGADORES ÚNICOS: cada dispositivo suma 1 solo la primera
 // vez que entra (se recuerda con localStorage); las siguientes veces solo lee el
@@ -7053,6 +7338,11 @@ function initProgression() {
   if (albumBtn) albumBtn.addEventListener("click", openAlbum);
   const albumBack = document.getElementById("album-back");
   if (albumBack) albumBack.addEventListener("click", closeAlbum);
+  const passBtn = document.getElementById("pass-btn");
+  if (passBtn) passBtn.addEventListener("click", openBattlePass);
+  const bpBack = document.getElementById("bp-back");
+  if (bpBack) bpBack.addEventListener("click", closeBattlePass);
+  syncBattlePass(false);   // entregar premios del pase de niveles ya alcanzados (sin aviso)
   document.getElementById("sfx-btn").addEventListener("click", toggleSfx);
   document.getElementById("music-btn").addEventListener("click", toggleMusic);
   const resetBtn = document.getElementById("reset-btn");
@@ -8035,8 +8325,8 @@ window.addEventListener("keydown", (e) => {
 
 // Desbloquea y equipa el pack Harry Potter (skin + estela + tema + música).
 function unlockPotterNow() {
-  ownedSkins.add("potter"); ownedTrails.add("potter"); ownedThemes.add("hp");
-  equippedSkin = "potter"; equippedTrail = "potter"; equippedTheme = "hp"; equippedPet = "none";
+  ownedSkins.add("potter"); ownedTrails.add("potter"); ownedThemes.add("hp"); ownedPets.add("dobby");
+  equippedSkin = "potter"; equippedTrail = "potter"; equippedTheme = "hp"; equippedPet = "dobby";
   applySkin(level); applyPet(); applyTheme("hp");
   if (gameState === "playing") startMusic(level);   // cambiar ya a la musiquita mágica
   saveProgress();
