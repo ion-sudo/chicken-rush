@@ -1018,6 +1018,27 @@ body.theme-light .album-section-title { color: #1a2240; }
 .dpad.right { grid-column: 3; grid-row: 2; }
 .dpad.down  { grid-column: 2; grid-row: 3; }
 
+/* ---------- Botón táctil de HABILIDAD (balón CR7 / hechizos HP) ---------- */
+#ability-btn {
+  position: absolute;
+  bottom: 40px;
+  left: 26px;
+  z-index: 16;
+  width: 92px; height: 92px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 40px;
+  color: #fff;
+  background: radial-gradient(circle at 35% 30%, rgba(90,170,255,0.95), rgba(30,60,180,0.9));
+  border: 3px solid rgba(255,255,255,0.55);
+  box-shadow: 0 4px 14px rgba(0,0,0,0.45), 0 0 16px rgba(80,140,255,0.6);
+  backdrop-filter: blur(4px);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+#ability-btn:active { transform: scale(0.92); }
+
 /* ---------- Indicador de habilidad especial (recarga) ---------- */
 #ability-hud {
   position: absolute;
@@ -1064,6 +1085,8 @@ body.theme-light .album-section-title { color: #1a2240; }
   backdrop-filter: blur(4px);
   white-space: nowrap;
   transition: transform 0.1s ease;
+  pointer-events: auto;   /* se pueden tocar en móvil para elegir hechizo */
+  cursor: pointer;
 }
 #spell-selector .spell.selected {
   color: #fff;

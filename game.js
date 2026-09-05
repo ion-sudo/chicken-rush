@@ -3569,6 +3569,25 @@ if (elBossBtn) {
   elBossBtn.addEventListener("click", (e) => { e.preventDefault(); bossActionKey(); });
 }
 
+// Botón táctil de HABILIDAD (móvil/iPad): balón de CR7 / hechizos de Harry Potter.
+const elAbilityBtn = document.getElementById("ability-btn");
+if (elAbilityBtn) {
+  elAbilityBtn.addEventListener("click", (e) => {
+    e.preventDefault();
+    const now = performance.now() / 1000;
+    if (equippedSkin === "cr7") cr7Throw(now);
+    else if (equippedSkin === "potter") { if (!spellMenuOpen) openSpellMenu(); else castSelectedSpell(); }
+  });
+}
+// Tocar un hechizo del selector lo elige y lo lanza (para móvil).
+document.querySelectorAll("#spell-selector .spell").forEach((el) => {
+  el.addEventListener("click", () => {
+    spellIndex = parseInt(el.dataset.i, 10) || 0;
+    renderSpellMenu();
+    castSelectedSpell();
+  });
+});
+
 // ----------------------------------------------------------------------------
 // 8. ACTUALIZACIÓN DE VEHÍCULOS, COLISIONES Y AVANCE FORZADO
 // ----------------------------------------------------------------------------
@@ -4022,14 +4041,23 @@ const elAbilityHud = document.getElementById("ability-hud");   // recarga de la 
 
 // Muestra la recarga de la habilidad especial (balón CR7). Se llama cada frame.
 function updateAbilityHud(now) {
-  if (!elAbilityHud) return;
-  if (equippedSkin === "cr7" && gameState === "playing") {
-    const left = cr7CooldownUntil - now;
-    elAbilityHud.classList.remove("hidden");
-    if (left <= 0) { elAbilityHud.textContent = "⚽ ¡LISTO! (ESPACIO)"; elAbilityHud.classList.add("ready"); }
-    else { elAbilityHud.textContent = "⚽ Recargando " + Math.ceil(left) + "s"; elAbilityHud.classList.remove("ready"); }
-  } else {
-    elAbilityHud.classList.add("hidden");
+  if (elAbilityHud) {
+    if (equippedSkin === "cr7" && gameState === "playing") {
+      const left = cr7CooldownUntil - now;
+      elAbilityHud.classList.remove("hidden");
+      if (left <= 0) { elAbilityHud.textContent = "⚽ ¡LISTO!"; elAbilityHud.classList.add("ready"); }
+      else { elAbilityHud.textContent = "⚽ Recargando " + Math.ceil(left) + "s"; elAbilityHud.classList.remove("ready"); }
+    } else {
+      elAbilityHud.classList.add("hidden");
+    }
+  }
+  // Botón táctil de habilidad: solo en móvil/iPad, jugando y con skin CR7 o Potter.
+  if (elAbilityBtn) {
+    const show = typeof isTouchDevice === "function" && isTouchDevice()
+      && gameState === "playing" && playerState.alive
+      && (equippedSkin === "cr7" || equippedSkin === "potter");
+    elAbilityBtn.classList.toggle("hidden", !show);
+    if (show) elAbilityBtn.textContent = equippedSkin === "cr7" ? "⚽" : "🪄";
   }
 }
 let stormStart = 0;       // instante en que empezó la tormenta actual
@@ -6572,9 +6600,9 @@ const PETS = {
   // Mascota EXCLUSIVA legendaria: solo se consigue venciendo al JEFE FINAL.
   cosmica:  { name: "Alien", price: 0, swatch: "#66c43a", build: buildPetCosmica, exclusive: true, legendary: true },
   // Mascota secreta de la skin CR7 (balón GOAT). Se lanza con ESPACIO.
-  balon:    { name: "Balón GOAT", price: 0, swatch: "#ffffff", build: buildPetBall, exclusive: true, legendary: true },
+  balon:    { name: "Balón GOAT", price: 0, swatch: "#ffffff", build: buildPetBall, exclusive: true, legendary: true, unlockHint: "Desbloquéala con el código CR7" },
   // Mascota secreta de la skin Harry Potter (elfo doméstico Dobby).
-  dobby:    { name: "Dobby", price: 0, swatch: "#cdb58a", build: buildPetDobby, exclusive: true, legendary: true },
+  dobby:    { name: "Dobby", price: 0, swatch: "#cdb58a", build: buildPetDobby, exclusive: true, legendary: true, unlockHint: "Desbloquéala con el código HP" },
   // ---- Mascotas EXCLUSIVAS del PASE DE BATALLA ----
   bp_estrella: { name: "Estrellita", price: 0, swatch: "#ffe14a", build: buildPetStar, exclusive: true, bp: true },
   bp_corazon:  { name: "Corazón",    price: 0, swatch: "#ff5db1", build: buildPetHeart, exclusive: true, bp: true },
@@ -6599,7 +6627,7 @@ const PETS = {
   dino:     { name: "Dino",     price: 75,  swatch: "#4aa84a", build: buildPetDino,    reqLevel: 6 },
   buho:     { name: "Búho",     price: 60,  swatch: "#9a6e3a", build: buildPetOwl,     reqLevel: 5 },
 };
-const PET_ORDER = ["cosmica", "none", "pollito", "gato", "perro", "conejo", "fantasma", "abeja", "robot", "zorro", "zombi", "dragon", "pinguino", "panda", "pato", "limo", "dino", "buho"];
+const PET_ORDER = ["cosmica", "balon", "dobby", "none", "pollito", "gato", "perro", "conejo", "fantasma", "abeja", "robot", "zorro", "zombi", "dragon", "pinguino", "panda", "pato", "limo", "dino", "buho"];
 
 // Mascota viva en la escena (sigue al pollo con retardo).
 let petMesh = null;
@@ -9849,6 +9877,7 @@ function animate() {
   // Fuera del juego activo, asegurar que el aviso del águila no se quede pegado.
   if (gameState !== "playing" && elEagleWarn) elEagleWarn.classList.remove("show");
   if (gameState !== "playing" && elAbilityHud) elAbilityHud.classList.add("hidden");
+  if (gameState !== "playing" && elAbilityBtn) elAbilityBtn.classList.add("hidden");
   if (gameState !== "playing" && spellMenuOpen) closeSpellMenu();
 
   renderer.render(scene, camera);
