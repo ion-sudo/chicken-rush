@@ -675,6 +675,8 @@ body.theme-bp_aqua { --neon-cyan: #16e0ff; --neon-magenta: #00b0d0; --neon-yello
 body.theme-bp_aqua .overlay { background: radial-gradient(circle at 50% 32%, rgba(16, 90, 120, 0.9), rgba(4, 16, 26, 0.97)); }
 body.theme-bp_candy { --neon-cyan: #ff8fd4; --neon-magenta: #ff5db1; --neon-yellow: #fff0a0; --bg-dark: #2a1024; }
 body.theme-bp_candy .overlay { background: radial-gradient(circle at 50% 30%, rgba(150, 60, 120, 0.9), rgba(40, 14, 34, 0.97)); }
+body.theme-bp_gold { --neon-cyan: #fff0a0; --neon-magenta: #ffd700; --neon-yellow: #fff7c0; --bg-dark: #241c06; }
+body.theme-bp_gold .overlay { background: radial-gradient(circle at 50% 32%, rgba(150, 120, 20, 0.9), rgba(30, 24, 6, 0.97)); }
 
 /* ---------- Botón y pantalla del PASE DE BATALLA ---------- */
 .btn-pass {
@@ -733,6 +735,13 @@ body.theme-bp_candy .overlay { background: radial-gradient(circle at 50% 30%, rg
 .bp-state { flex: 0 0 auto; font-size: 12px; font-weight: 800; }
 .bp-tier.unlocked .bp-state { color: #35d07f; }
 .bp-tier:not(.unlocked) .bp-state { color: rgba(255,255,255,0.6); }
+.bp-buy {
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  padding: 14px; margin-bottom: 6px; border-radius: 16px;
+  background: linear-gradient(135deg, rgba(255,43,214,0.25), rgba(0,240,255,0.2));
+  border: 2px solid var(--neon-yellow, #ffe600);
+}
+.bp-buy-txt { font-weight: 800; font-size: 14px; text-align: center; }
 
 /* ---------- Medallero de logros ---------- */
 .medal-grid {

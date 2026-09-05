@@ -4818,19 +4818,30 @@ function buildCR7Gear() {
   return g;
 }
 
-// Balón de fútbol realista (esfera blanca con manchas negras repartidas).
+// Balón del MUNDIAL: esfera blanca brillante con paneles de colores (rojo, azul,
+// dorado, verde) y estrellitas doradas. Original, estilo balón de campeonato.
 function buildSoccerBall(R) {
   const g = new THREE.Group();
-  const white = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.45 });
-  const black = new THREE.MeshStandardMaterial({ color: 0x141414, roughness: 0.45 });
-  const ball = new THREE.Mesh(new THREE.SphereGeometry(R, 20, 16), white);
+  const white = new THREE.MeshStandardMaterial({ color: 0xf7f9ff, roughness: 0.35, metalness: 0.1 });
+  const ball = new THREE.Mesh(new THREE.SphereGeometry(R, 22, 18), white);
   g.add(ball);
-  const dirs = [[0, 1, 0], [0, -1, 0], [0.9, 0.35, 0.3], [-0.9, 0.35, -0.3], [0.3, 0.35, 0.9], [-0.3, 0.35, -0.9], [0.65, -0.45, 0.6], [-0.65, -0.45, -0.6]];
-  for (const d of dirs) {
-    const n = new THREE.Vector3(d[0], d[1], d[2]).normalize();
-    const spot = new THREE.Mesh(new THREE.SphereGeometry(R * 0.32, 8, 6), black);
-    spot.position.set(n.x * R * 0.98, n.y * R * 0.98, n.z * R * 0.98);
+  // Paneles de colores repartidos por la esfera.
+  const cols = [0xd11020, 0x1e5bd6, 0xffd200, 0x14a05a, 0xd11020, 0x1e5bd6];
+  const dirs = [[0, 1, 0], [0, -1, 0], [0.9, 0.3, 0.3], [-0.9, 0.3, -0.3], [0.3, 0.3, 0.9], [-0.3, 0.3, -0.9], [0.6, -0.5, 0.6], [-0.6, -0.5, -0.6], [0.55, 0.2, -0.8], [-0.55, 0.2, 0.8]];
+  for (let i = 0; i < dirs.length; i++) {
+    const n = new THREE.Vector3(dirs[i][0], dirs[i][1], dirs[i][2]).normalize();
+    const mat = new THREE.MeshStandardMaterial({ color: cols[i % cols.length], roughness: 0.4, emissive: cols[i % cols.length], emissiveIntensity: 0.12 });
+    const spot = new THREE.Mesh(new THREE.SphereGeometry(R * 0.3, 10, 8), mat);
+    spot.position.set(n.x * R * 0.97, n.y * R * 0.97, n.z * R * 0.97);
     g.add(spot);
+  }
+  // Estrellitas doradas (toque de campeonato).
+  const starMat = new THREE.MeshStandardMaterial({ color: 0xffe14a, emissive: 0xffb020, emissiveIntensity: 0.8, metalness: 0.6, roughness: 0.2 });
+  for (const d of [[0.5, 0.75, 0.4], [-0.5, 0.6, -0.5]]) {
+    const n = new THREE.Vector3(d[0], d[1], d[2]).normalize();
+    const st = new THREE.Mesh(new THREE.OctahedronGeometry(R * 0.16), starMat);
+    st.position.set(n.x * R * 1.0, n.y * R * 1.0, n.z * R * 1.0);
+    g.add(st);
   }
   return g;
 }
@@ -4911,6 +4922,32 @@ function buildPetCrystal() { // cristal cian flotante
   const g = new THREE.Group();
   const mat = new THREE.MeshStandardMaterial({ color: 0x00f0ff, emissive: 0x00b0d0, emissiveIntensity: 0.9, roughness: 0.15, metalness: 0.5, transparent: true, opacity: 0.85 });
   const c = new THREE.Mesh(new THREE.OctahedronGeometry(0.19), mat); c.scale.set(1, 1.7, 1); c.position.y = 0.52; g.add(c);
+  g.userData = { float: true, spinY: true };
+  return g;
+}
+function buildPetCloud() { // nubecita blanca que flota
+  const g = new THREE.Group();
+  const mat = new THREE.MeshStandardMaterial({ color: 0xf4f8ff, roughness: 0.9, emissive: 0x9fb6e0, emissiveIntensity: 0.15 });
+  for (const [x, y, s] of [[0, 0.5, 0.26], [-0.16, 0.46, 0.18], [0.16, 0.46, 0.18], [0.05, 0.6, 0.16]]) {
+    const b = new THREE.Mesh(new THREE.SphereGeometry(s, 10, 8), mat); b.position.set(x, y, 0); g.add(b);
+  }
+  g.userData = { float: true };
+  return g;
+}
+function buildPetUfo() { // mini OVNI plateado con cúpula brillante
+  const g = new THREE.Group();
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.1, 0.1, 16),
+    new THREE.MeshStandardMaterial({ color: 0xb8c2d0, metalness: 0.8, roughness: 0.3 }));
+  body.position.y = 0.5; g.add(body);
+  const dome = new THREE.Mesh(new THREE.SphereGeometry(0.13, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2),
+    new THREE.MeshStandardMaterial({ color: 0x8affc0, emissive: 0x2ea86a, emissiveIntensity: 0.7, transparent: true, opacity: 0.85 }));
+  dome.position.y = 0.55; g.add(dome);
+  const glow = [];
+  for (let i = 0; i < 6; i++) {
+    const a = (i / 6) * Math.PI * 2;
+    const b = new THREE.Mesh(new THREE.SphereGeometry(0.03, 6, 5), new THREE.MeshStandardMaterial({ color: 0xffe14a, emissive: 0xffd000, emissiveIntensity: 1 }));
+    b.position.set(Math.cos(a) * 0.22, 0.48, Math.sin(a) * 0.22); g.add(b); glow.push(b);
+  }
   g.userData = { float: true, spinY: true };
   return g;
 }
@@ -5048,6 +5085,10 @@ const SKINS = {
   bp_royal:  { name: "Realeza",    price: 0, swatch: "#8a4bff", color: 0x6a2bff, emissive: 0x2a0a55, glow: 0.4, metal: 0.5, rough: 0.35, accessory: buildCrown, exclusive: true, bp: true },
   bp_frost:  { name: "Escarcha",   price: 0, swatch: "#bff0ff", color: 0xdff4ff, emissive: 0x7ac8ff, glow: 0.45, metal: 0.6, rough: 0.2, accessory: buildBeanie, exclusive: true, bp: true },
   bp_ember:  { name: "Brasa",      price: 0, swatch: "#ff3000", color: 0x2a0a06, emissive: 0xff4400, glow: 1.0, metal: 0.4, rough: 0.4, accessory: buildHorns, exclusive: true, bp: true },
+  bp_gold:   { name: "Oro Real",   price: 0, swatch: "#ffd700", color: 0xffd700, emissive: 0x4a3a00, glow: 0.3, metal: 0.95, rough: 0.15, accessory: buildCrown, exclusive: true, bp: true },
+  bp_toxic:  { name: "Tóxico",     price: 0, swatch: "#7dff3a", color: 0x2a3a10, emissive: 0x7dff3a, glow: 0.7, metal: 0.3, rough: 0.4, accessory: buildMohawk, exclusive: true, bp: true },
+  bp_ocean:  { name: "Océano",     price: 0, swatch: "#1f7fb5", color: 0x1f7fb5, emissive: 0x0a3a55, glow: 0.35, metal: 0.5, rough: 0.35, accessory: buildSnorkel, exclusive: true, bp: true },
+  bp_candy:  { name: "Chuche",     price: 0, swatch: "#ff8fd4", color: 0xffb3e0, emissive: 0xff5db1, glow: 0.4, metal: 0.3, rough: 0.4, accessory: buildTiara, exclusive: true, bp: true },
 };
 const SKIN_ORDER = ["cosmico", "cr7", "potter", "classic", "neon", "astronaut", "golden", "robot", "ninja", "vaquero", "zombie", "diablo", "rey", "angel", "fiesta", "fuego", "hielo", "pirata", "mago", "punk", "chef", "arcoiris", "galaxia", "samurai", "vikingo", "detective", "graduado", "unicornio", "buzo", "flores", "cyber", "esqueleto", "lava", "chicle", "esmeralda", "obsidiana", "militar", "dj", "princesa", "navidad", "invierno", "bufon", "nerd", "espartano", "panda", "conejo"];
 
@@ -5820,6 +5861,8 @@ const ACCESSORIES = {
   bp_tiara:    { name: "Tiara real",   price: 0, swatch: "#ffd76a", build: buildTiara, exclusive: true, bp: true },
   bp_cresta:   { name: "Cresta neón",  price: 0, swatch: "#00e5ff", build: buildMohawk, exclusive: true, bp: true },
   bp_globo:    { name: "Globo VIP",    price: 0, swatch: "#ff3b6b", build: buildBalloonAcc, exclusive: true, bp: true },
+  bp_gafas:    { name: "Gafas VIP",    price: 0, swatch: "#0a0a0e", build: buildSunglasses, exclusive: true, bp: true },
+  bp_bigote:   { name: "Bigote fino",  price: 0, swatch: "#1a120a", build: buildMustache, exclusive: true, bp: true },
 };
 const ACCESSORY_ORDER = ["none", "gorro", "gafas", "corona", "casco", "aureola", "cuernos", "vaquero", "flor", "pajarita", "bufanda", "monoculo", "bigote", "parche", "auriculares", "globo", "tiara", "santa", "bufanda_dj", "birrete", "snorkel"];
 
@@ -5871,6 +5914,8 @@ const TRAILS = {
   bp_candy:  { name: "Caramelo",  price: 0, swatch: "#ff8fd4", colors: [0xff8fd4, 0xfff0a0, 0x9fe8ff], shape: "star", rise: 0.9, grav: 0.5, life: 0.9, count: 3, exclusive: true, bp: true },
   bp_shadow: { name: "Sombras",   price: 0, swatch: "#6a2bff", colors: [0x6a2bff, 0x2a1055, 0x9b2bff], shape: "cube", rise: 0.6, grav: 0.4, life: 1.0, count: 3, exclusive: true, bp: true },
   bp_gold:   { name: "Oro Real",  price: 0, swatch: "#ffd700", colors: [0xffd700, 0xfff3a0, 0xffaa00], shape: "star", rise: 0.8, grav: 0.6, life: 1.0, count: 4, exclusive: true, bp: true, big: true },
+  bp_neon:   { name: "Neón+",     price: 0, swatch: "#ff2bd6", colors: [0xff2bd6, 0x00f0ff, 0xffe600], shape: "cube", rise: 1.0, grav: 0.4, life: 0.85, count: 3, exclusive: true, bp: true },
+  bp_ice:    { name: "Hielo",     price: 0, swatch: "#cdf3ff", colors: [0xcdf3ff, 0x9fd0ff, 0xffffff], shape: "feather", rise: 0.4, grav: 1.6, life: 1.0, count: 3, exclusive: true, bp: true },
 };
 const TRAIL_ORDER = ["none", "plumas", "fuego", "arcoiris", "estrellas", "burbujas", "oro", "neon", "nieve", "toxico", "sombra", "cosmica"];
 
@@ -6116,6 +6161,7 @@ const THEMES = {
   bp_sunset: { name: "Atardecer", price: 0, swatch: "#ff7a2e", exclusive: true, bp: true },
   bp_aqua:   { name: "Aqua",      price: 0, swatch: "#16e0ff", exclusive: true, bp: true },
   bp_candy:  { name: "Caramelo+", price: 0, swatch: "#ff8fd4", exclusive: true, bp: true },
+  bp_gold:   { name: "Dorado+",   price: 0, swatch: "#ffd700", exclusive: true, bp: true },
 };
 const THEME_ORDER = ["dark", "neon", "light", "retro", "bosque", "oceano", "caramelo", "lava", "oro"];
 
@@ -6150,6 +6196,8 @@ const PIOS = {
   bp_zap:    { name: "Zap",    price: 0, swatch: "#00f0ff", exclusive: true, bp: true, play: () => { chirp(1800, 900, 2400, 0.14, "square", 0.26); } },
   bp_corn:   { name: "Corneta",price: 0, swatch: "#ffd700", exclusive: true, bp: true, play: () => { tone(392, 0.1, "sawtooth", 0.28); tone(523, 0.16, "sawtooth", 0.26, null, 0.1); } },
   bp_pop:    { name: "Pop",    price: 0, swatch: "#ff8fd4", exclusive: true, bp: true, play: () => { tone(880, 0.05, "sine", 0.3); tone(1320, 0.08, "sine", 0.24, null, 0.05); } },
+  bp_bell:   { name: "Campanita", price: 0, swatch: "#bff0ff", exclusive: true, bp: true, play: () => { tone(1318, 0.5, "sine", 0.3); tone(2637, 0.3, "sine", 0.1); } },
+  bp_ping:   { name: "Ping",   price: 0, swatch: "#00f0ff", exclusive: true, bp: true, play: () => { tone(1200, 0.05, "sine", 0.3); tone(1800, 0.1, "sine", 0.22, null, 0.05); } },
 };
 const PIO_ORDER = ["none", "classic", "agudo", "grave", "robot", "dulce", "laser", "moneda", "trompeta", "ocho", "campana", "ufo", "grito"];
 
@@ -6494,6 +6542,8 @@ const PETS = {
   bp_estrella: { name: "Estrellita", price: 0, swatch: "#ffe14a", build: buildPetStar, exclusive: true, bp: true },
   bp_corazon:  { name: "Corazón",    price: 0, swatch: "#ff5db1", build: buildPetHeart, exclusive: true, bp: true },
   bp_cristal:  { name: "Cristal",    price: 0, swatch: "#00f0ff", build: buildPetCrystal, exclusive: true, bp: true },
+  bp_nube:     { name: "Nubecita",   price: 0, swatch: "#f4f8ff", build: buildPetCloud, exclusive: true, bp: true },
+  bp_ovni:     { name: "OVNI",       price: 0, swatch: "#8affc0", build: buildPetUfo, exclusive: true, bp: true },
   pollito:  { name: "Pollito",  price: 30,  swatch: "#ffd21a", build: buildPetChick },
   gato:     { name: "Gatito",   price: 40,  swatch: "#9aa3b2", build: buildPetCat },
   perro:    { name: "Perrito",  price: 40,  swatch: "#b5793f", build: buildPetDog },
@@ -6658,7 +6708,8 @@ function loadSave() {
   // Bloque 7: mascota acompañante.
   ownedPets = new Set(data.pets || ["none"]); ownedPets.add("none");
   equippedPet = data.pet || "none";
-  // Pase de batalla: niveles ya reclamados.
+  // Pase de batalla: comprado + niveles ya reclamados.
+  battlePassOwned = !!data.passOwned;
   battlePassClaimed = new Set(data.pass || []);
   // Bloque 7: estadísticas a largo plazo.
   stats = Object.assign(
@@ -6694,6 +6745,7 @@ function saveProgress() {
       // Bloque 7: mascota + estadísticas.
       pets: [...ownedPets],
       pet: equippedPet,
+      passOwned: battlePassOwned,     // pase de batalla comprado
       pass: [...battlePassClaimed],   // pase de batalla
       stats,
     }));
@@ -6816,62 +6868,45 @@ function applyLevelReward(level) {
 }
 
 // ============================================================================
-//  PASE DE BATALLA — 50 premios EXCLUSIVOS que se consiguen al subir de nivel.
-//  Cada nivel del jugador desbloquea (automáticamente) el premio de ese peldaño.
+//  PASE DE BATALLA — 100 premios EXCLUSIVOS. Se compra una vez por 1000 monedas
+//  y, a partir de ahí, cada nivel del jugador entrega el premio de ese peldaño.
 // ============================================================================
-const BATTLE_PASS = [
-  { lvl: 1,  type: "coins", n: 25 },
-  { lvl: 2,  type: "pio",       id: "bp_boing" },
-  { lvl: 3,  type: "coins", n: 30 },
-  { lvl: 4,  type: "trail",     id: "bp_aqua" },
-  { lvl: 5,  type: "skin",      id: "bp_aqua" },
-  { lvl: 6,  type: "coins", n: 35 },
-  { lvl: 7,  type: "accessory", id: "bp_cresta" },
-  { lvl: 8,  type: "pet",       id: "bp_estrella" },
-  { lvl: 9,  type: "coins", n: 40 },
-  { lvl: 10, type: "theme",     id: "bp_aqua" },
-  { lvl: 11, type: "pio",       id: "bp_zap" },
-  { lvl: 12, type: "skin",      id: "bp_sunset" },
-  { lvl: 13, type: "coins", n: 45 },
-  { lvl: 14, type: "trail",     id: "bp_ember" },
-  { lvl: 15, type: "accessory", id: "bp_globo" },
-  { lvl: 16, type: "coins", n: 50 },
-  { lvl: 17, type: "pet",       id: "bp_corazon" },
-  { lvl: 18, type: "pio",       id: "bp_pop" },
-  { lvl: 19, type: "coins", n: 55 },
-  { lvl: 20, type: "skin",      id: "bp_shadow" },
-  { lvl: 21, type: "theme",     id: "bp_sunset" },
-  { lvl: 22, type: "coins", n: 60 },
-  { lvl: 23, type: "trail",     id: "bp_candy" },
-  { lvl: 24, type: "accessory", id: "bp_tiara" },
-  { lvl: 25, type: "pet",       id: "bp_cristal" },
-  { lvl: 26, type: "coins", n: 65 },
-  { lvl: 27, type: "pio",       id: "bp_magia" },
-  { lvl: 28, type: "skin",      id: "bp_frost" },
-  { lvl: 29, type: "coins", n: 70 },
-  { lvl: 30, type: "trail",     id: "bp_shadow" },
-  { lvl: 31, type: "accessory", id: "bp_aureola" },
-  { lvl: 32, type: "coins", n: 75 },
-  { lvl: 33, type: "theme",     id: "bp_candy" },
-  { lvl: 34, type: "pio",       id: "bp_corn" },
-  { lvl: 35, type: "skin",      id: "bp_royal" },
-  { lvl: 36, type: "coins", n: 80 },
-  { lvl: 37, type: "trail",     id: "bp_gold" },
-  { lvl: 38, type: "coins", n: 85 },
-  { lvl: 39, type: "accessory", id: "bp_corona" },
-  { lvl: 40, type: "skin",      id: "bp_ember" },
-  { lvl: 41, type: "coins", n: 90 },
-  { lvl: 42, type: "coins", n: 95 },
-  { lvl: 43, type: "coins", n: 100 },
-  { lvl: 44, type: "coins", n: 100 },
-  { lvl: 45, type: "coins", n: 110 },
-  { lvl: 46, type: "coins", n: 120 },
-  { lvl: 47, type: "coins", n: 130 },
-  { lvl: 48, type: "coins", n: 140 },
-  { lvl: 49, type: "coins", n: 150 },
-  { lvl: 50, type: "coins", n: 300 },
+const BATTLE_PASS_PRICE = 1000;   // cuesta 1000 monedas desbloquear el pase
+let battlePassOwned = false;      // ¿comprado?
+let battlePassClaimed = new Set();// niveles cuyo premio ya se ha entregado
+
+// Cosméticos exclusivos del pase, en orden (se colocan en peldaños pares).
+const BP_COSMETICS = [
+  { type: "pio", id: "bp_boing" }, { type: "trail", id: "bp_aqua" }, { type: "skin", id: "bp_aqua" },
+  { type: "accessory", id: "bp_cresta" }, { type: "pet", id: "bp_estrella" }, { type: "theme", id: "bp_aqua" },
+  { type: "pio", id: "bp_zap" }, { type: "skin", id: "bp_sunset" }, { type: "trail", id: "bp_ember" },
+  { type: "accessory", id: "bp_globo" }, { type: "pet", id: "bp_corazon" }, { type: "pio", id: "bp_pop" },
+  { type: "skin", id: "bp_shadow" }, { type: "theme", id: "bp_sunset" }, { type: "trail", id: "bp_candy" },
+  { type: "accessory", id: "bp_tiara" }, { type: "pet", id: "bp_cristal" }, { type: "pio", id: "bp_magia" },
+  { type: "skin", id: "bp_frost" }, { type: "trail", id: "bp_shadow" }, { type: "accessory", id: "bp_aureola" },
+  { type: "theme", id: "bp_candy" }, { type: "pio", id: "bp_corn" }, { type: "skin", id: "bp_royal" },
+  { type: "trail", id: "bp_gold" }, { type: "accessory", id: "bp_corona" }, { type: "skin", id: "bp_ember" },
+  { type: "pet", id: "bp_nube" }, { type: "pio", id: "bp_bell" }, { type: "trail", id: "bp_neon" },
+  { type: "skin", id: "bp_gold" }, { type: "accessory", id: "bp_gafas" }, { type: "theme", id: "bp_gold" },
+  { type: "pet", id: "bp_ovni" }, { type: "pio", id: "bp_ping" }, { type: "trail", id: "bp_ice" },
+  { type: "skin", id: "bp_toxic" }, { type: "accessory", id: "bp_bigote" }, { type: "skin", id: "bp_ocean" },
+  { type: "skin", id: "bp_candy" },
 ];
-let battlePassClaimed = new Set();   // niveles cuyo premio ya se ha entregado
+// Construir 100 peldaños: cosmético en los niveles pares (hasta agotarlos),
+// monedas en el resto (creciendo), y un premio final gordo en el nivel 100.
+const BATTLE_PASS = [];
+(function buildBattlePass() {
+  let ci = 0;
+  for (let lvl = 1; lvl <= 100; lvl++) {
+    if (lvl % 2 === 0 && ci < BP_COSMETICS.length) {
+      BATTLE_PASS.push({ lvl, type: BP_COSMETICS[ci].type, id: BP_COSMETICS[ci].id });
+      ci++;
+    } else {
+      BATTLE_PASS.push({ lvl, type: "coins", n: 20 + Math.floor(lvl / 5) * 10 });
+    }
+  }
+  BATTLE_PASS[99] = { lvl: 100, type: "coins", n: 1000 };  // premio final: recuperas el precio
+})();
 
 // Iconos por tipo de premio (para la pantalla del pase).
 const BP_ICONS = { coins: "🪙", skin: "👕", pet: "🐾", trail: "✨", pio: "🎵", theme: "🎨", accessory: "🎩" };
@@ -6888,8 +6923,26 @@ function grantPassReward(t) {
   return "";
 }
 
+// Compra del pase (1000 monedas). Al comprarlo, entrega los premios de tus
+// niveles ya alcanzados.
+function buyBattlePass() {
+  if (battlePassOwned) return;
+  if (walletCoins < BATTLE_PASS_PRICE) {
+    if (typeof bigToast === "function") bigToast("🪙", "MONEDAS INSUFICIENTES", "Necesitas " + BATTLE_PASS_PRICE + " monedas");
+    return;
+  }
+  walletCoins -= BATTLE_PASS_PRICE;
+  battlePassOwned = true;
+  updateCoinDisplays();
+  syncBattlePass(true);
+  saveProgress();
+  if (typeof bigToast === "function") bigToast("🎁", "¡PASE ACTIVADO!", "Premios exclusivos desbloqueados");
+  if (bpScreenOpen) renderBattlePass();
+}
+
 // Entrega automáticamente todos los premios del pase hasta el nivel actual.
 function syncBattlePass(announce) {
+  if (!battlePassOwned) return;   // hay que comprar el pase primero
   let granted = 0;
   for (const t of BATTLE_PASS) {
     if (playerLevel >= t.lvl && !battlePassClaimed.has(t.lvl)) {
@@ -7231,16 +7284,27 @@ function closeAlbum() { albumScreenOpen = false; elAlbumScreen.classList.add("hi
 function openBattlePass() { bpScreenOpen = true; renderBattlePass(); elStart.classList.add("hidden"); if (elBpScreen) elBpScreen.classList.remove("hidden"); }
 function closeBattlePass() { bpScreenOpen = false; if (elBpScreen) elBpScreen.classList.add("hidden"); elStart.classList.remove("hidden"); }
 
-// Pinta el "track" del pase de batalla (50 peldaños, coloridos).
+// Pinta el "track" del pase de batalla (100 peldaños, coloridos).
 function renderBattlePass() {
   const list = document.getElementById("bp-list");
   if (!list) return;
   const prog = document.getElementById("bp-progress");
-  if (prog) prog.textContent = "Nivel " + playerLevel + " · " + battlePassClaimed.size + "/" + BATTLE_PASS.length + " premios";
+  if (prog) prog.textContent = battlePassOwned
+    ? ("Nivel " + playerLevel + " · " + battlePassClaimed.size + "/" + BATTLE_PASS.length + " premios")
+    : ("Nivel " + playerLevel + " · pase sin comprar");
   let html = "";
+  // Banner de compra si aún no tienes el pase.
+  if (!battlePassOwned) {
+    const canBuy = walletCoins >= BATTLE_PASS_PRICE;
+    html += '<div class="bp-buy">' +
+      '<div class="bp-buy-txt">Desbloquea los 100 premios exclusivos</div>' +
+      '<button id="bp-buy-btn" class="skin-action"' + (canBuy ? "" : " disabled") + '>' +
+      '🎁 Comprar pase · <span class="coin-icon"></span> ' + BATTLE_PASS_PRICE + '</button></div>';
+  }
   for (const t of BATTLE_PASS) {
-    const unlocked = playerLevel >= t.lvl;
-    const current = playerLevel === t.lvl;
+    const reached = playerLevel >= t.lvl;
+    const unlocked = battlePassOwned && reached;
+    const current = battlePassOwned && playerLevel === t.lvl;
     let icon = BP_ICONS[t.type] || "🎁";
     let name, swatch = null;
     if (t.type === "coins") { name = "+" + t.n + " monedas"; }
@@ -7252,14 +7316,17 @@ function renderBattlePass() {
     }
     const typeLabel = { coins: "Monedas", skin: "Skin", pet: "Mascota", trail: "Estela", pio: "Pío", theme: "Tema", accessory: "Accesorio" }[t.type] || "";
     const swHtml = swatch ? '<span class="bp-swatch" style="' + swatchStyle(swatch) + '"></span>' : "";
+    const state = unlocked ? "✓" : (!battlePassOwned && reached) ? "🔒 Compra" : "🔒 Nv " + t.lvl;
     html += '<div class="bp-tier' + (unlocked ? " unlocked" : "") + (current ? " current" : "") + '">' +
       '<span class="bp-lvl">' + t.lvl + '</span>' +
       '<span class="bp-reward"><span class="bp-ic">' + icon + '</span>' + swHtml +
       '<span><div class="bp-name">' + name + '</div><div class="bp-type">' + typeLabel + '</div></span></span>' +
-      '<span class="bp-state">' + (unlocked ? "✓" : "🔒 Nv " + t.lvl) + '</span>' +
+      '<span class="bp-state">' + state + '</span>' +
       '</div>';
   }
   list.innerHTML = html;
+  const buyBtn = document.getElementById("bp-buy-btn");
+  if (buyBtn) buyBtn.addEventListener("click", buyBattlePass);
 }
 
 // DOM de las pantallas nuevas.
