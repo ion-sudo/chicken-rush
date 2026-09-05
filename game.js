@@ -4870,30 +4870,67 @@ function buildPetBall() {
 // orejas enormes, ojos grandes y una funda de almohada por ropa.
 function buildPetDobby() {
   const g = new THREE.Group();
-  const skin  = new THREE.MeshStandardMaterial({ color: 0xcdb58a, roughness: 0.85 });
-  const cloth = new THREE.MeshStandardMaterial({ color: 0xe6e0cf, roughness: 0.9 });
-  const white = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.4 });
-  // Cuerpo (funda de almohada).
-  const body = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.3, 0.2), cloth); body.position.y = 0.34; g.add(body);
-  // Cabeza grande.
-  const head = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.3, 0.28), skin); head.position.y = 0.62; g.add(head);
-  // Orejas enormes (se mueven en updatePet).
+  const skin   = new THREE.MeshStandardMaterial({ color: 0xd8c2a0, roughness: 0.85 });   // piel pálida de elfo
+  const skinD  = new THREE.MeshStandardMaterial({ color: 0xbfa578, roughness: 0.85 });   // sombra (interior orejas, nariz)
+  const cloth  = new THREE.MeshStandardMaterial({ color: 0xeae3d0, roughness: 0.95 });   // funda de almohada
+  const clothD = new THREE.MeshStandardMaterial({ color: 0xd2c8ad, roughness: 0.95 });
+  const white  = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.35 });
+  const iris   = new THREE.MeshStandardMaterial({ color: 0x8fbf3f, emissive: 0x3a5a10, emissiveIntensity: 0.3, roughness: 0.4 });
+  const black  = new THREE.MeshStandardMaterial({ color: 0x0d0d0d });
+
+  // Cuerpo pequeño y delgado con funda de almohada raída (una manga caída).
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.3, 0.18), cloth); body.position.y = 0.34; g.add(body);
+  const strap = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.24, 0.19), clothD);
+  strap.position.set(-0.07, 0.42, 0); strap.rotation.z = 0.35; g.add(strap);
+  // Bajo irregular de la funda.
+  const hem = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.06, 0.2), clothD); hem.position.set(0, 0.2, 0); g.add(hem);
+  // Cuello fino.
+  const neck = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.08, 0.1), skin); neck.position.y = 0.5; g.add(neck);
+  // Cabeza grande y ovalada.
+  const head = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.34, 0.3), skin); head.position.y = 0.68; g.add(head);
+  // Mejillas hundidas (barbilla estrecha).
+  const chin = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.1, 0.24), skin); chin.position.set(0, 0.52, 0.02); g.add(chin);
+
+  // OREJAS ENORMES y puntiagudas que sobresalen (rasgo clave del elfo).
   const ears = [];
   for (const side of [-1, 1]) {
-    const ear = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.24, 0.17), skin);
-    ear.position.set(side * 0.22, 0.66, 0); ear.rotation.z = side * 0.5; g.add(ear); ears.push(ear);
+    const earG = new THREE.Group();
+    earG.position.set(side * 0.15, 0.74, 0);
+    const outer = new THREE.Mesh(new THREE.ConeGeometry(0.14, 0.4, 4), skin);
+    outer.rotation.z = side > 0 ? -Math.PI / 2 : Math.PI / 2;   // apunta hacia fuera
+    outer.rotation.y = Math.PI / 4;                              // cara plana al frente
+    outer.position.x = side * 0.2; earG.add(outer);
+    const inner = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.3, 4), skinD);
+    inner.rotation.z = side > 0 ? -Math.PI / 2 : Math.PI / 2; inner.rotation.y = Math.PI / 4;
+    inner.position.set(side * 0.19, 0, 0.02); earG.add(inner);
+    g.add(earG); ears.push(earG);
   }
-  // Ojos grandes verdes.
-  for (const dx of [-0.08, 0.08]) {
-    const eyeW = new THREE.Mesh(new THREE.SphereGeometry(0.06, 10, 8), white); eyeW.position.set(dx, 0.64, 0.15); g.add(eyeW);
-    const pup = new THREE.Mesh(new THREE.SphereGeometry(0.03, 8, 6),
-      new THREE.MeshStandardMaterial({ color: 0x2ea86a, emissive: 0x0a3a20, emissiveIntensity: 0.3 })); pup.position.set(dx, 0.64, 0.2); g.add(pup);
+
+  // Ojos ENORMES y tristes (blanco + iris verde + pupila + brillo).
+  for (const dx of [-0.09, 0.09]) {
+    const scl = new THREE.Mesh(new THREE.SphereGeometry(0.085, 12, 10), white); scl.position.set(dx, 0.7, 0.14); g.add(scl);
+    const ir = new THREE.Mesh(new THREE.SphereGeometry(0.05, 10, 8), iris); ir.position.set(dx, 0.69, 0.2); g.add(ir);
+    const pup = new THREE.Mesh(new THREE.SphereGeometry(0.026, 8, 6), black); pup.position.set(dx, 0.69, 0.235); g.add(pup);
+    const shine = new THREE.Mesh(new THREE.SphereGeometry(0.014, 6, 5), white); shine.position.set(dx + 0.02, 0.72, 0.245); g.add(shine);
+    // Ceja caída (expresión triste).
+    const brow = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.02, 0.02), skinD);
+    brow.position.set(dx, 0.78, 0.17); brow.rotation.z = dx < 0 ? -0.25 : 0.25; g.add(brow);
   }
-  // Nariz larga y boca.
-  const nose = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.05, 0.13), skin); nose.position.set(0, 0.58, 0.18); g.add(nose);
-  // Bracitos y piernas.
-  for (const dx of [-0.16, 0.16]) { const arm = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.16, 0.05), skin); arm.position.set(dx, 0.34, 0.02); g.add(arm); }
-  for (const dx of [-0.08, 0.08]) { const leg = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.12, 0.06), skin); leg.position.set(dx, 0.1, 0.02); g.add(leg); }
+  // Nariz larga y caída.
+  const nose = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.06, 0.16), skinD); nose.position.set(0, 0.63, 0.2); nose.rotation.x = 0.35; g.add(nose);
+  // Boquita.
+  const mouth = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.02, 0.02), new THREE.MeshStandardMaterial({ color: 0x8a5a4a })); mouth.position.set(0, 0.55, 0.16); g.add(mouth);
+
+  // Bracitos finos y largos.
+  for (const dx of [-0.15, 0.15]) {
+    const arm = new THREE.Mesh(new THREE.BoxGeometry(0.045, 0.22, 0.045), skin);
+    arm.position.set(dx, 0.33, 0.03); g.add(arm);
+  }
+  // Piernas finas con pies grandes.
+  for (const dx of [-0.07, 0.07]) {
+    const leg = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.14, 0.05), skin); leg.position.set(dx, 0.11, 0.01); g.add(leg);
+    const foot = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.05, 0.15), skin); foot.position.set(dx, 0.03, 0.05); g.add(foot);
+  }
   g.userData = { ears: true, earMeshes: ears };
   return g;
 }
@@ -6617,11 +6654,11 @@ function updatePet(dt, now) {
   if (petMesh.userData.ball) petMesh.rotation.x -= dt * 3;
   // Mascotas del pase que giran sobre sí mismas.
   if (petMesh.userData.spinY) petMesh.rotation.y += dt * 2;
-  // Dobby: las orejotas se menean.
+  // Dobby: las orejotas se menean suavemente.
   if (petMesh.userData.earMeshes) {
-    const w = Math.sin(now * 5) * 0.25;
-    petMesh.userData.earMeshes[0].rotation.z = -0.5 - w;
-    petMesh.userData.earMeshes[1].rotation.z = 0.5 + w;
+    const w = Math.sin(now * 4) * 0.18;
+    petMesh.userData.earMeshes[0].rotation.z = 0.1 + w;
+    petMesh.userData.earMeshes[1].rotation.z = -0.1 - w;
   }
   // Mascota ALIEN: aura verde épica, disco de luz, estrellas en órbita, chispas
   // que ascienden, antena que parpadea y ojos que se balancean.
@@ -7160,10 +7197,28 @@ function renderShop() {
 }
 
 // Equipar un artículo de cualquier categoría (aplica el efecto + persiste).
+// Packs de skins temáticas: al equipar la skin, se equipa también su mascota,
+// estela y tema (si los tienes desbloqueados).
+const SKIN_BUNDLES = {
+  cr7:     { pet: "balon", trail: "cr7",    theme: "cr7" },
+  potter:  { pet: "dobby", trail: "potter", theme: "hp" },
+  cosmico: { pet: "cosmica", trail: "cosmica" },
+};
+
 function equipItem(tab, id) {
   const c = shopCategory(tab);
   if (!c.owned.has(id)) return;
-  if (tab === "skins") { equippedSkin = id; applySkin(level); }
+  if (tab === "skins") {
+    equippedSkin = id; applySkin(level);
+    // Si la skin tiene "pack" (CR7 / Harry Potter / Pollo Divino), equipar
+    // también su mascota, estela y tema a juego (los que tengas).
+    const b = SKIN_BUNDLES[id];
+    if (b) {
+      if (b.pet && ownedPets.has(b.pet)) { equippedPet = b.pet; applyPet(); }
+      if (b.trail && ownedTrails.has(b.trail)) equippedTrail = b.trail;
+      if (b.theme && ownedThemes.has(b.theme)) { equippedTheme = b.theme; applyTheme(b.theme); }
+    }
+  }
   else if (tab === "accessory") { equippedAccessory = id; applyAccessory(); }
   else if (tab === "trail") { equippedTrail = id; }
   else if (tab === "theme") { equippedTheme = id; applyTheme(id); }
