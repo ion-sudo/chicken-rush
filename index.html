@@ -2,6 +2,21 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
+  <!--
+    GOOGLE ANALYTICS (GA4)
+    Mide las visitas de battlemundial.com y de TODOS sus subdominios
+    con la misma propiedad: por eso el ID es el mismo en las tres
+    paginas (battlemundial.com, julensfortnite y chickenrush). Si
+    algun dia hay que cambiarlo, esta escrito aqui dos veces: en la
+    direccion del script y en el gtag('config', ...).
+  -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-NCFECTKF7R"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag() { dataLayer.push(arguments); }
+    gtag('js', new Date());
+    gtag('config', 'G-NCFECTKF7R');
+  </script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Chicken Rush</title>
   <link rel="stylesheet" href="style.css?v=88" />
